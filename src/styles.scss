@@ -1,0 +1,12 @@
+body {
+    width: 100svw;
+    height: 100svh;
+    // https://stackoverflow.com/a/33168168/2398020
+    overflow: hidden;
+    position: fixed;
+
+    img {
+        touch-action: none;
+        user-select: none;
+    }
+}

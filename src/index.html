@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- <meta name="apple-mobile-web-app-capable" content="yes" /> -->
+
+  <title>My First Parcel App!</title>
+  <link rel="stylesheet" href="reset.css" />
+  <link rel="stylesheet" href="styles.scss" />
+  <script type="module" src="app.ts"></script>
+</head>
+
+<body>
+  <button id="button-fs">Toggle Fullscreen</button>
+  <label>
+    Background
+    <input type="file" name="input-bg" accept="image/*" />
+  </label>
+  <label>
+    Reference
+    <input type="file" name="input-ref" accept="image/*" />
+  </label>
+  <label>
+    Opacity
+    <input type="range" name="input-opacity" min="0" max="100" value="50" />
+  </label>
+  <div id="gesture-area">
+    <img id="img-bg" src="#" />
+    <img id="img-ref" src="#" />
+  </div>
+</body>
+
+</html>

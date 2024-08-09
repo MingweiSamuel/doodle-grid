@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "isolatedModules": true,
+        "declaration": true,
+        "esModuleInterop": true,
+        "newLine": "lf",
+        "sourceMap": true,
+        "stripInternal": true,
+        "alwaysStrict": true,
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "strictNullChecks": true,
+        "strictPropertyInitialization": true
+    }
+}
