@@ -12,6 +12,8 @@ img {
     position: absolute;
     width: 100svw;
 
+    transform-origin: 0 0;
+
     &#img-ref {
         border: 0.2svw solid grey;
     }

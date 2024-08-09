@@ -1,4 +1,4 @@
-import interact from 'interactjs';
+import * as math from 'mathjs';
 
 document.addEventListener("DOMContentLoaded", function (_event) {
     {
@@ -57,45 +57,39 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
         const area: HTMLDivElement = document.getElementById('transform-area')! as HTMLDivElement;
         const imgRef: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
-        // var resetTimeout
 
-        interact(gestureArea)
-            .gesturable({
-                listeners: {
-                    start(event) {
-                        const tf = inputRepo.checked ? tfRef : tfArea;
-                        tf.angle -= event.angle
-                    },
-                    move(event) {
-                        const tf = inputRepo.checked ? tfRef : tfArea;
-                        const currentAngle = event.angle + tf.angle;
-                        const currentScale = event.scale * tf.scale;
-                        tf.dx += 100 * event.dx / window.innerWidth;
-                        tf.dy += 100 * event.dy / window.innerWidth;
+        // const ongoingTouches = [];
+        // gestureArea.addEventListener('touchstart', event => {
+        //     event.preventDefault();
 
-                        const target = inputRepo.checked ? imgRef : area;
-                        target.style.transform = `translate(${tf.dx}svw, ${tf.dy}svw) rotate(${currentAngle}deg) scale(${currentScale})`;
-                    },
-                    end(event) {
-                        const tf = inputRepo.checked ? tfRef : tfArea;
-                        tf.angle += event.angle;
-                        tf.scale *= event.scale;
-                        tf.dx += event.dx;
-                        tf.dy += event.dy;
-                    }
-                }
-            })
-            .draggable({
-                listeners: {
-                    move(event) {
-                        const tf = inputRepo.checked ? tfRef : tfArea;
-                        tf.dx += 100 * event.dx / window.innerWidth;
-                        tf.dy += 100 * event.dy / window.innerWidth;
+        //     for (let i = 0; i < event.changedTouches.length; i++) {
+        //         const newTouch = event.changedTouches[i];
+        //         ongoingTouches.push(newTouch.identifier);
+        //     }
+        // });
+        const mat = [
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+            [100, -100, 1, 0],
+            [100, 100, 0, 1],
+        ];
+        const matInv = math.inv(mat);
 
-                        const target = inputRepo.checked ? imgRef : area;
-                        target.style.transform = `translate(${tf.dx}svw, ${tf.dy}svw) rotate(${tf.angle}deg) scale(${tf.scale})`;
-                    }
-                }
-            });
+        gestureArea.addEventListener('touchmove', event => {
+            event.preventDefault();
+            if (1 !== event.touches.length) return;
+
+            // const tl = event.touches[0];
+            // const br = event.touches[1] || { pageX: tl.pageX + 100, pageY: tl.pageY + 100 };
+            const tl = { pageX: 0, pageY: 0 };
+            const br = event.touches[0];
+
+            // https://math.stackexchange.com/a/2790865/180371
+            const [sc, ss, tx, ty] = math.multiply(matInv, [tl.pageX, tl.pageY, br.pageX, br.pageY]);
+            console.log({sc, ss, tx, ty});
+
+            imgRef.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+            // console.log(out);
+        });
     }
 });
