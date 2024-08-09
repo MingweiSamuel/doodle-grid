@@ -1,0 +1,66 @@
+on:
+  - push
+  - pull_request
+name: CI
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5.3.1
+        with:
+          cancel_others: 'true'
+
+  build:
+    name: Build
+    needs: pre_job
+    if: ${{ github.ref == 'refs/heads/main' || needs.pre_job.outputs.should_skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      WWW_DIR: dist
+    permissions:
+      contents: write
+    steps:
+
+    - name: Checkout sources
+      uses: actions/checkout@v4.1.7
+
+    - name: Setup node
+      uses: actions/setup-node@v4.0.3
+      with:
+        node-version: '22'
+
+    - name: Install packages
+      run: npm ci
+
+    - name: Build
+      run: GIT_SHA="${GITHUB_SHA:0:7}" npm run build
+
+    - name: List git config
+      run: git config --local --list
+
+    - name: Deploy to gh-pages
+      if: ${{ github.event_name != 'pull_request' }}
+      shell: bash
+      run: |
+        git -C "$WWW_DIR" init -q
+        git -C "$WWW_DIR" remote add origin "$(git remote get-url origin)"
+        git -C "$WWW_DIR" config credential.helper "$(git config credential.helper)"
+        git -C "$WWW_DIR" config 'http.https://github.com/.extraheader' "$(git config 'http.https://github.com/.extraheader')"
+        git -C "$WWW_DIR" config core.autocrlf input
+        git -C "$WWW_DIR" config core.safecrlf false
+        git -C "$WWW_DIR" fetch origin gh-pages:gh-pages || true
+        git -C "$WWW_DIR" symbolic-ref HEAD refs/heads/gh-pages
+        git -C "$WWW_DIR" reset
+        git -C "$WWW_DIR" add -A
+        if git -C "$WWW_DIR" -c 'user.name=github-actions[bot]' -c 'user.email=41898282+github-actions[bot]@users.noreply.github.com' \
+          commit -m "Build site $(date -I) $(git rev-parse HEAD)";
+        then
+          git -C "$WWW_DIR" push -u origin gh-pages --quiet
+        else
+          echo 'No changes to commit'
+        fi
