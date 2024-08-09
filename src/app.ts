@@ -55,19 +55,11 @@ document.addEventListener("DOMContentLoaded", function (_event) {
                         angleScale.angle -= event.angle
                     },
                     move(event) {
-                        // document.body.appendChild(new Text(event.scale))
                         const currentAngle = event.angle + angleScale.angle;
                         const currentScale = event.scale * angleScale.scale;
-                        const currentX = event.dx + angleScale.dx;
-                        const currentY = event.dy + angleScale.dy;
-
-                        scaleElement.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${currentAngle}deg) scale(${currentScale})`;
-                        // 'rotate(' + currentAngle + 'deg)' + 'scale(' + currentScale + ')' + trabn
-
-                        // // uses the dragMoveListener from the draggable demo above
-                        // dragMoveListener(event, scaleElement);
-
-
+                        angleScale.dx += event.dx;
+                        angleScale.dy += event.dy;
+                        scaleElement.style.transform = `translate(${angleScale.dx}px, ${angleScale.dy}px) rotate(${currentAngle}deg) scale(${currentScale})`;
                     },
                     end(event) {
                         angleScale.angle += event.angle;
