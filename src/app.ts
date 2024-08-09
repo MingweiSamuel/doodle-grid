@@ -122,12 +122,22 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
                 // console.log(math.index([[0], [1], [2]], 0));
                 // https://math.stackexchange.com/a/2790865/180371
-                transform = math.flatten(math.lusolve([
-                    [0, 0, 1, 0],
-                    [0, 0, 0, 1],
-                    [s.x, -s.y, 1, 0],
-                    [s.y, +s.x, 0, 1],
-                ], [0, 0, e.pageX, e.pageY])) as number[];
+                const [sc, ss, ..._] = transform;
+                const [tx, ty] = math.subtract(
+                    [e.pageX, e.pageY],
+                    math.multiply([
+                        [sc, -ss],
+                        [ss, +sc],
+                    ], [s.x, s.y])
+                );
+                transform[2] = tx;
+                transform[3] = ty;
+                // transform = math.flatten(math.lusolve([
+                //     [0, 0, 1, 0],
+                //     [0, 0, 0, 1],
+                //     [s.x, -s.y, 1, 0],
+                //     [s.y, +s.x, 0, 1],
+                // ], [0, 0, e.pageX, e.pageY])) as number[];
             }
             else if (2 === event.touches.length) {
                 const e1 = event.touches[0];
