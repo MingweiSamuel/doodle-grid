@@ -1,12 +1,14 @@
 import interact from 'interactjs';
 
 document.addEventListener("DOMContentLoaded", function (_event) {
-    const buttonFs: HTMLButtonElement = document.getElementById('button-fs')! as HTMLButtonElement;
-    buttonFs.addEventListener('click', _e => {
-        document.body.requestFullscreen({
-            navigationUI: "hide",
+    {
+        const buttonFs: HTMLButtonElement = document.getElementById('button-fs')! as HTMLButtonElement;
+        buttonFs.addEventListener('click', _e => {
+            document.body.requestFullscreen({
+                navigationUI: 'hide',
+            });
         });
-    });
+    }
 
     {
         const inputBg: HTMLInputElement = document.querySelector('input[type=file][name=input-bg]')! as HTMLInputElement;
@@ -38,59 +40,62 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     }
 
     {
-        const angleScale = {
+        const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
+        console.log(inputRepo);
+        const tfArea = {
+            angle: 0,
+            scale: 1,
+            dx: 0,
+            dy: 0,
+        }
+        const tfRef = {
             angle: 0,
             scale: 1,
             dx: 0,
             dy: 0,
         };
         const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
-        const scaleElement: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
+        const area: HTMLDivElement = document.getElementById('transform-area')! as HTMLDivElement;
+        const imgRef: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
         // var resetTimeout
 
         interact(gestureArea)
             .gesturable({
                 listeners: {
                     start(event) {
-                        angleScale.angle -= event.angle
+                        const tf = inputRepo.checked ? tfRef : tfArea;
+                        tf.angle -= event.angle
                     },
                     move(event) {
-                        const currentAngle = event.angle + angleScale.angle;
-                        const currentScale = event.scale * angleScale.scale;
-                        angleScale.dx += event.dx;
-                        angleScale.dy += event.dy;
-                        scaleElement.style.transform = `translate(${angleScale.dx}px, ${angleScale.dy}px) rotate(${currentAngle}deg) scale(${currentScale})`;
+                        const tf = inputRepo.checked ? tfRef : tfArea;
+                        const currentAngle = event.angle + tf.angle;
+                        const currentScale = event.scale * tf.scale;
+                        tf.dx += 100 * event.dx / window.innerWidth;
+                        tf.dy += 100 * event.dy / window.innerWidth;
+
+                        const target = inputRepo.checked ? imgRef : area;
+                        target.style.transform = `translate(${tf.dx}svw, ${tf.dy}svw) rotate(${currentAngle}deg) scale(${currentScale})`;
                     },
                     end(event) {
-                        angleScale.angle += event.angle;
-                        angleScale.scale *= event.scale;
-                        angleScale.dx += event.dx;
-                        angleScale.dy += event.dy;
+                        const tf = inputRepo.checked ? tfRef : tfArea;
+                        tf.angle += event.angle;
+                        tf.scale *= event.scale;
+                        tf.dx += event.dx;
+                        tf.dy += event.dy;
                     }
                 }
             })
             .draggable({
                 listeners: {
                     move(event) {
-                        angleScale.dx += event.dx;
-                        angleScale.dy += event.dy;
+                        const tf = inputRepo.checked ? tfRef : tfArea;
+                        tf.dx += 100 * event.dx / window.innerWidth;
+                        tf.dy += 100 * event.dy / window.innerWidth;
 
-                        scaleElement.style.transform = `translate(${angleScale.dx}px, ${angleScale.dy}px) rotate(${angleScale.angle}deg) scale(${angleScale.scale})`;
+                        const target = inputRepo.checked ? imgRef : area;
+                        target.style.transform = `translate(${tf.dx}svw, ${tf.dy}svw) rotate(${tf.angle}deg) scale(${tf.scale})`;
                     }
                 }
             });
     }
 });
-
-// function dragMoveListener(event: any, scaleElement: HTMLElement) {
-//     // keep the dragged position in the data-x/data-y attributes
-//     var x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx
-//     var y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy
-
-//     // translate the element
-//     target.style.transform = 'translate(' + x + 'px, ' + y + 'px)'
-
-//     // update the posiion attributes
-//     target.setAttribute('data-x', x)
-//     target.setAttribute('data-y', y)
-// }

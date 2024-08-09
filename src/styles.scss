@@ -4,14 +4,25 @@ body {
     // https://stackoverflow.com/a/33168168/2398020
     overflow: hidden;
     position: fixed;
+}
 
-    img {
-        touch-action: none;
-        user-select: none;
-        position: absolute;
+img {
+    touch-action: none;
+    user-select: none;
+    position: absolute;
+    width: 100svw;
 
-        &#img-ref {
-            border: 1px solid grey;
-        }
+    &#img-ref {
+        border: 0.2svw solid grey;
     }
+}
+
+#gesture-area {
+    position: absolute;
+    width: 100svw;
+    height: 100svh;
+}
+
+.control {
+    position: absolute;
 }
