@@ -1,0 +1,2 @@
+body{width:100svw;height:100svh;position:fixed;overflow:hidden}#gesture-area{width:100svw;height:100svh;position:absolute}#gesture-area img{touch-action:none;-webkit-user-select:none;user-select:none;transform-origin:0 0;width:100svw;position:absolute}#gesture-area img#img-ref{border:.2svw solid gray}.control{position:absolute}
+/*# sourceMappingURL=index.ef589bd5.css.map */
