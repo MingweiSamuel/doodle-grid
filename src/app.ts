@@ -39,67 +39,67 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         updateOpacity();
     }
 
-    {
-        const PSEUDO_POINTER_ID = -1;
+    const PSEUDO_POINTER_ID = -1;
 
-        const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
-        const imgBg = document.getElementById('img-bg')! as HTMLImageElement;
-        const imgRf = document.getElementById('img-ref')! as HTMLImageElement;
-        const ghBg = new GestureHandler(imgBg);
-        const ghRf = new GestureHandler(imgRf);
-        const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
-        gestureArea.addEventListener('pointerdown', event => {
-            event.preventDefault();
-            if (!inputRepo.checked) ghBg.start(event);
-            ghRf.start(event);
-            if (1 === event.button || 2 === event.button || event.altKey || event.ctrlKey || event.metaKey) {
-                if (!inputRepo.checked) {
-                    const [clientX, clientY] = ghBg.imageToclientXy([imgBg.width / 2, imgBg.height / 2]);
-                    const dist2 = (Math.pow(event.clientX - clientX, 2) + Math.pow(event.clientY - clientY, 2));
-                    if (dist2 < Math.pow(50, 2)) return;
-
-                    ghBg.start({
-                        pointerId: PSEUDO_POINTER_ID,
-                        clientX, clientY,
-                    });
-                    ghRf.start({
-                        pointerId: PSEUDO_POINTER_ID,
-                        clientX, clientY,
-                    });
-                }
-                else {
-                    const [clientX, clientY] = ghRf.imageToclientXy([imgRf.width / 2, imgRf.height / 2]);
-                    const dist2 = (Math.pow(event.clientX - clientX, 2) + Math.pow(event.clientY - clientY, 2));
-                    if (dist2 < Math.pow(50, 2)) return;
-
-                    ghRf.start({
-                        pointerId: PSEUDO_POINTER_ID,
-                        clientX, clientY,
-                    });
-                }
-            }
-        });
-        gestureArea.addEventListener('pointermove', event => {
-            event.preventDefault();
-            if (!inputRepo.checked) ghBg.move(event);
-            ghRf.move(event);
-        });
-        const pointerEnd = (event: PointerEvent) => {
-            event.preventDefault();
+    const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
+    const imgBg = document.getElementById('img-bg')! as HTMLImageElement;
+    const imgRf = document.getElementById('img-ref')! as HTMLImageElement;
+    const ghBg = new GestureHandler(imgBg);
+    const ghRf = new GestureHandler(imgRf);
+    const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
+    gestureArea.addEventListener('pointerdown', event => {
+        event.preventDefault();
+        if (!inputRepo.checked) ghBg.start(event);
+        ghRf.start(event);
+        if (1 === event.button || 2 === event.button || event.altKey || event.ctrlKey || event.metaKey) {
             if (!inputRepo.checked) {
-                ghBg.end(event);
-                ghBg.end({ pointerId: PSEUDO_POINTER_ID });
+                const [clientX, clientY] = ghBg.imageToclientXy([imgBg.width / 2, imgBg.height / 2]);
+                const dist2 = (Math.pow(event.clientX - clientX, 2) + Math.pow(event.clientY - clientY, 2));
+                if (dist2 < Math.pow(50, 2)) return;
+
+                ghBg.start({
+                    pointerId: PSEUDO_POINTER_ID,
+                    clientX, clientY,
+                });
+                ghRf.start({
+                    pointerId: PSEUDO_POINTER_ID,
+                    clientX, clientY,
+                });
             }
-            ghRf.end(event);
-            ghRf.end({ pointerId: PSEUDO_POINTER_ID });
-        };
-        gestureArea.addEventListener('pointercancel', pointerEnd);
-        gestureArea.addEventListener('pointerup', pointerEnd);
-        gestureArea.addEventListener('contextmenu', e => {
-            e.preventDefault();
-            return false;
-        });
-    }
+            else {
+                const [clientX, clientY] = ghRf.imageToclientXy([imgRf.width / 2, imgRf.height / 2]);
+                const dist2 = (Math.pow(event.clientX - clientX, 2) + Math.pow(event.clientY - clientY, 2));
+                if (dist2 < Math.pow(50, 2)) return;
+
+                ghRf.start({
+                    pointerId: PSEUDO_POINTER_ID,
+                    clientX, clientY,
+                });
+            }
+        }
+    });
+    gestureArea.addEventListener('pointermove', event => {
+        event.preventDefault();
+        if (!inputRepo.checked) ghBg.move(event);
+        ghRf.move(event);
+    });
+    const pointerEnd = (event: PointerEvent) => {
+        event.preventDefault();
+        if (!inputRepo.checked) {
+            ghBg.end(event);
+            ghBg.end({ pointerId: PSEUDO_POINTER_ID });
+        }
+        ghRf.end(event);
+        ghRf.end({ pointerId: PSEUDO_POINTER_ID });
+    };
+    gestureArea.addEventListener('pointercancel', pointerEnd);
+    gestureArea.addEventListener('pointerup', pointerEnd);
+    gestureArea.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        return false;
+    });
+
+    const buttonSave: HTMLButtonElement = document.getElementById('button-save')! as HTMLButtonElement;
 });
 
 type Pointer = { pointerId: number, clientX: number, clientY: number };

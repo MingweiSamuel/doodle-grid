@@ -1,3 +1,10 @@
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #222;
+        color: white;
+    }
+}
+
 body {
     width: 100svw;
     height: 100svh;
@@ -26,9 +33,14 @@ body {
         &#img-ref {
             border: 0.2svw solid grey;
         }
+
+        &[src="data:,"] {
+            display: none;
+        }
     }
 }
 
 .control {
     position: absolute;
+    display: flex;
 }

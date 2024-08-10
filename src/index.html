@@ -14,8 +14,8 @@
 
 <body>
   <div id="gesture-area">
-    <img id="img-bg" src="#" />
-    <img id="img-ref" src="#" />
+    <img id="img-bg" src="data:," />
+    <img id="img-ref" src="data:," />
   </div>
   <div class="control">
     <button id="button-fs">Toggle Fullscreen</button>
@@ -28,13 +28,14 @@
       <input type="file" name="input-ref" accept="image/*" />
     </label>
     <label>
-      Opacity
-      <input type="range" name="input-opacity" min="0" max="100" value="50" />
-    </label>
-    <label>
       Reposition
       <input type="checkbox" name="input-repo" />
     </label>
+    <label>
+      Opacity
+      <input type="range" name="input-opacity" min="0" max="100" value="50" />
+    </label>
+    <button id="button-save">Save</button>
   </div>
 </body>
 
