@@ -47,14 +47,15 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         let transformRf = [1, 0, 0, 0];
 
         const updateTransform = () => {
+            const svw = 100 / window.innerWidth;
             {
                 const [sc, ss, tx, ty] = transformBg;
-                imgBg.style.transform = `translate(${tx}px, ${ty}px) matrix(${sc}, ${ss}, ${-ss}, ${sc}, 0, 0)`;
+                imgBg.style.transform = `translate(${svw * tx}svw, ${svw * ty}svw) matrix(${sc}, ${ss}, ${-ss}, ${sc}, 0, 0)`;
                 console.log(imgBg.style.transform);
             }
             {
                 const [sc, ss, tx, ty] = transformRf;
-                imgRf.style.transform = `translate(${tx}px, ${ty}px) matrix(${sc}, ${ss}, ${-ss}, ${sc}, 0, 0)`;
+                imgRf.style.transform = `translate(${svw * tx}svw, ${svw * ty}svw) matrix(${sc}, ${ss}, ${-ss}, ${sc}, 0, 0)`;
             }
         };
 
