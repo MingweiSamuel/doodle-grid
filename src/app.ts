@@ -60,17 +60,7 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         };
 
         const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
-
-        type GestureStart = { identifier: number, bgX: number, bgY: number, rfX: number, rfY: number };
-        const activeGestureStarts: GestureStart[] = [];
-        const findActiveGestureIdx = ({ identifier }: { identifier: number }): number => {
-            for (let i = 0; i < activeGestureStarts.length; i++) {
-                if (identifier === activeGestureStarts[i].identifier) {
-                    return i;
-                }
-            }
-            return -1;
-        };
+        const activeGestureStarts: Map<number, { bgX: number, bgY: number, rfX: number, rfY: number }> = new Map();
 
         const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
         gestureArea.addEventListener('touchstart', event => {
@@ -96,16 +86,16 @@ document.addEventListener("DOMContentLoaded", function (_event) {
                     [0, 0, 1],
                 ], [screenX, screenY, 1]));
 
-                activeGestureStarts.push({ identifier, bgX, bgY, rfX, rfY } as any);
+                activeGestureStarts.set(identifier, { bgX, bgY, rfX, rfY } as any);
             }
         });
         gestureArea.addEventListener('touchmove', event => {
             event.preventDefault();
 
             if (1 === event.touches.length) {
-                console.assert(1 === activeGestureStarts.length, activeGestureStarts);
-                const st = activeGestureStarts[0];
                 const ed = event.touches[0];
+                const st = activeGestureStarts.get(ed.identifier)!;
+                console.assert(null != st);
 
                 if (!inputRepo.checked) {
                     // Background.
@@ -138,8 +128,10 @@ document.addEventListener("DOMContentLoaded", function (_event) {
             else if (2 === event.touches.length) {
                 const ed1 = event.touches[0];
                 const ed2 = event.touches[1];
-                const st1 = activeGestureStarts[findActiveGestureIdx(ed1)];
-                const st2 = activeGestureStarts[findActiveGestureIdx(ed2)];
+                const st1 = activeGestureStarts.get(ed1.identifier)!;
+                const st2 = activeGestureStarts.get(ed2.identifier)!;
+                console.assert(null != st1);
+                console.assert(null != st2);
 
                 // https://math.stackexchange.com/a/2790865/180371
                 if (!inputRepo.checked) {
@@ -169,12 +161,9 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         });
         const touchEnd = (event: TouchEvent) => {
             for (let i = 0; i < event.changedTouches.length; i++) {
-                const j = findActiveGestureIdx(event.changedTouches[i])
-                if (0 <= j) {
-                    activeGestureStarts.splice(j, 1);
-                }
-                else {
-                    console.error('Failed to remove!!!');
+                const touchEnd = event.changedTouches[i];
+                if (!activeGestureStarts.delete(touchEnd.identifier)) {
+                    console.error('Could not find activeGestureStart for event:', touchEnd);
                 }
             }
         };
