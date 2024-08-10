@@ -101,7 +101,14 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
     const buttonSave: HTMLButtonElement = document.getElementById('button-save')! as HTMLButtonElement;
     buttonSave.addEventListener('click', _e => {
-        let scale = Math.min(5, 1.5 / (Math.min(ghBg.scale(), ghRf.scale())));
+        let scale = 1.5 / (Math.min(ghBg.scale(), ghRf.scale()));
+        scale = Math.min(
+            scale,
+            5,
+            // Max image dimensions:
+            10_000 / window.innerWidth,
+            10_000 / window.innerHeight,
+        );
 
         const canvas = document.createElement('canvas');
         canvas.width = window.innerWidth * scale;
@@ -128,6 +135,7 @@ document.addEventListener("DOMContentLoaded", function (_event) {
             const anchor = document.createElement('a');
 
             document.body.appendChild(anchor);
+            anchor.setAttribute('target', '_blank');
             anchor.setAttribute('download', 'doodlegrid.webp');
             anchor.setAttribute('href', blobUrl);
             anchor.click();
