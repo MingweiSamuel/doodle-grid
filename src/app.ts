@@ -100,6 +100,43 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     });
 
     const buttonSave: HTMLButtonElement = document.getElementById('button-save')! as HTMLButtonElement;
+    buttonSave.addEventListener('click', _e => {
+        let scale = Math.min(5, 1.5 / (Math.min(ghBg.scale(), ghRf.scale())));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = window.innerWidth * scale;
+        canvas.height = window.innerHeight * scale;
+        document.body.appendChild(canvas);
+
+        const ctx = canvas.getContext("2d")!;
+        if (10 < imgBg.src.length) {
+            const [sc, ss, tx, ty] = ghBg._transform;
+            ctx.globalAlpha = 1.0;
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            ctx.transform(sc, ss, -ss, sc, tx, ty);
+            ctx.drawImage(imgBg, 0, 0);
+        }
+        if (10 < imgRf.src.length) {
+            const [sc, ss, tx, ty] = ghRf._transform;
+            ctx.globalAlpha = +imgRf.style.opacity;
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            ctx.transform(sc, ss, -ss, sc, tx, ty);
+            ctx.drawImage(imgRf, 0, 0);
+        }
+        canvas.toBlob(blob => {
+            const blobUrl = URL.createObjectURL(blob!);
+            const anchor = document.createElement('a');
+
+            document.body.appendChild(anchor);
+            anchor.setAttribute('download', 'doodlegrid.webp');
+            anchor.setAttribute('href', blobUrl);
+            anchor.click();
+
+            URL.revokeObjectURL(blobUrl);
+            anchor.remove();
+            canvas.remove();
+        }, 'image/webp', 0.9);
+    });
 });
 
 type Pointer = { pointerId: number, clientX: number, clientY: number };
@@ -111,26 +148,6 @@ class GestureHandler {
 
     constructor(transformTarget: HTMLElement) {
         this._target = transformTarget;
-    }
-
-    imageToclientXy([x, y]: [number, number]): [number, number] {
-        const [sc, ss, tx, ty] = this._transform;
-        const [sx, sy] = math.multiply([
-            [sc, -ss, tx],
-            [ss, +sc, ty],
-            [0, 0, 1]
-        ], [x, y, 1]) as [number, number, 1];
-        return [sx, sy];
-    }
-
-    screenToImageXy({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">): [number, number] {
-        const [sc, ss, tx, ty] = this._transform;
-        const [x, y, _z] = math.flatten(math.lusolve([
-            [sc, -ss, tx],
-            [ss, +sc, ty],
-            [0, 0, 1],
-        ], [clientX, clientY, 1])) as [number, number, 1];
-        return [x, y];
     }
 
     start({ clientX, clientY, pointerId }: Pointer): void {
@@ -155,6 +172,31 @@ class GestureHandler {
 
     end({ pointerId }: Pick<Pointer, "pointerId">): void {
         this._activePointers.delete(pointerId);
+    }
+
+    scale(): number {
+        const [sc, ss, ..._] = this._transform;
+        return Math.sqrt(sc * sc + ss * ss);
+    }
+
+    imageToclientXy([x, y]: [number, number]): [number, number] {
+        const [sc, ss, tx, ty] = this._transform;
+        const [sx, sy] = math.multiply([
+            [sc, -ss, tx],
+            [ss, +sc, ty],
+            [0, 0, 1]
+        ], [x, y, 1]) as [number, number, 1];
+        return [sx, sy];
+    }
+
+    screenToImageXy({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">): [number, number] {
+        const [sc, ss, tx, ty] = this._transform;
+        const [x, y, _z] = math.flatten(math.lusolve([
+            [sc, -ss, tx],
+            [ss, +sc, ty],
+            [0, 0, 1],
+        ], [clientX, clientY, 1])) as [number, number, 1];
+        return [x, y];
     }
 
     _update(): void {
