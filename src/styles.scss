@@ -11,12 +11,15 @@ body {
     width: 100svw;
     height: 100svh;
 
-
     img {
         touch-action: none;
         user-select: none;
+
         position: absolute;
-        width: 100svw;
+
+        // Always use pixel width.
+        max-width: none;
+        width: auto;
 
         transform-origin: 0 0;
 

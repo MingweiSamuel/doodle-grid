@@ -40,40 +40,72 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     }
 
     {
+        const PSEUDO_POINTER_ID = -1;
+
         const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
-        const ghBg = new GestureHandler(document.getElementById('img-bg')!);
-        const ghRf = new GestureHandler(document.getElementById('img-ref')!);
+        const imgBg = document.getElementById('img-bg')! as HTMLImageElement;
+        const imgRf = document.getElementById('img-ref')! as HTMLImageElement;
+        const ghBg = new GestureHandler(imgBg);
+        const ghRf = new GestureHandler(imgRf);
         const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
-        gestureArea.addEventListener('touchstart', event => {
-            for (let i = 0; i < event.changedTouches.length; i++) {
-                const pointer = event.changedTouches[i];
-                if (!inputRepo.checked) ghBg.start(pointer);
-                ghRf.start(pointer);
+        gestureArea.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            if (!inputRepo.checked) ghBg.start(event);
+            ghRf.start(event);
+            if (1 === event.button || 2 === event.button || event.altKey || event.ctrlKey || event.metaKey) {
+                if (!inputRepo.checked) {
+                    const [clientX, clientY] = ghBg.imageToclientXy([imgBg.width / 2, imgBg.height / 2]);
+                    const dist2 = (Math.pow(event.clientX - clientX, 2) + Math.pow(event.clientY - clientY, 2));
+                    if (dist2 < Math.pow(50, 2)) return;
+
+                    ghBg.start({
+                        pointerId: PSEUDO_POINTER_ID,
+                        clientX, clientY,
+                    });
+                    ghRf.start({
+                        pointerId: PSEUDO_POINTER_ID,
+                        clientX, clientY,
+                    });
+                }
+                else {
+                    const [clientX, clientY] = ghRf.imageToclientXy([imgRf.width / 2, imgRf.height / 2]);
+                    const dist2 = (Math.pow(event.clientX - clientX, 2) + Math.pow(event.clientY - clientY, 2));
+                    if (dist2 < Math.pow(50, 2)) return;
+
+                    ghRf.start({
+                        pointerId: PSEUDO_POINTER_ID,
+                        clientX, clientY,
+                    });
+                }
             }
         });
-        gestureArea.addEventListener('touchmove', event => {
-            for (let i = 0; i < event.changedTouches.length; i++) {
-                const pointer = event.changedTouches[i];
-                if (!inputRepo.checked) ghBg.move(pointer);
-                ghRf.move(pointer);
-            }
+        gestureArea.addEventListener('pointermove', event => {
+            event.preventDefault();
+            if (!inputRepo.checked) ghBg.move(event);
+            ghRf.move(event);
         });
-        const touchEnd = (event: TouchEvent) => {
-            for (let i = 0; i < event.changedTouches.length; i++) {
-                const pointer = event.changedTouches[i];
-                if (!inputRepo.checked) ghBg.end(pointer);
-                ghRf.end(pointer);
+        const pointerEnd = (event: PointerEvent) => {
+            event.preventDefault();
+            if (!inputRepo.checked) {
+                ghBg.end(event);
+                ghBg.end({ pointerId: PSEUDO_POINTER_ID });
             }
+            ghRf.end(event);
+            ghRf.end({ pointerId: PSEUDO_POINTER_ID });
         };
-        gestureArea.addEventListener('touchcancel', touchEnd);
-        gestureArea.addEventListener('touchend', touchEnd);
+        gestureArea.addEventListener('pointercancel', pointerEnd);
+        gestureArea.addEventListener('pointerup', pointerEnd);
+        gestureArea.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            return false;
+        });
     }
 });
 
-type Pointer = { identifier: number, screenX: number, screenY: number };
+type Pointer = { pointerId: number, clientX: number, clientY: number };
 
 class GestureHandler {
-    _activePointers: Map<Number, { startX: number, startY: number, screenX: number, screenY: number }> = new Map();
+    _activePointers: Map<Number, { startX: number, startY: number, clientX: number, clientY: number }> = new Map();
     _transform: [number, number, number, number] = [1, 0, 0, 0];
     _target: HTMLElement;
 
@@ -81,35 +113,48 @@ class GestureHandler {
         this._target = transformTarget;
     }
 
-    start({ screenX, screenY, identifier }: Pointer): void {
+    imageToclientXy([x, y]: [number, number]): [number, number] {
         const [sc, ss, tx, ty] = this._transform;
-        const [startX, startY, _z] = math.flatten(math.lusolve([
+        const [sx, sy] = math.multiply([
+            [sc, -ss, tx],
+            [ss, +sc, ty],
+            [0, 0, 1]
+        ], [x, y, 1]) as [number, number, 1];
+        return [sx, sy];
+    }
+
+    screenToImageXy({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">): [number, number] {
+        const [sc, ss, tx, ty] = this._transform;
+        const [x, y, _z] = math.flatten(math.lusolve([
             [sc, -ss, tx],
             [ss, +sc, ty],
             [0, 0, 1],
-        ], [screenX, screenY, 1])) as [number, number, 1];
-        this._activePointers.set(identifier, {
-            startX, startY, screenX, screenY
+        ], [clientX, clientY, 1])) as [number, number, 1];
+        return [x, y];
+    }
+
+    start({ clientX, clientY, pointerId }: Pointer): void {
+        const [startX, startY] = this.screenToImageXy({ clientX, clientY });
+        this._activePointers.set(pointerId, {
+            startX, startY, clientX, clientY
         });
     }
 
-    move({ screenX, screenY, identifier }: Pointer): void {
-        const active = this._activePointers.get(identifier);
+    move({ clientX, clientY, pointerId }: Pointer): void {
+        const active = this._activePointers.get(pointerId);
         if (null == active) return;
 
-        this._activePointers.set(identifier, {
+        this._activePointers.set(pointerId, {
             ...active,
-            screenX,
-            screenY,
+            clientX,
+            clientY,
         });
 
         this._update();
     }
 
-    end({ identifier }: Pointer): void {
-        if (!this._activePointers.delete(identifier)) {
-            console.error('Failed to remove activePointer with identifier:', identifier);
-        }
+    end({ pointerId }: Pick<Pointer, "pointerId">): void {
+        this._activePointers.delete(pointerId);
     }
 
     _update(): void {
@@ -120,10 +165,9 @@ class GestureHandler {
         else if (1 === activePointers.length) {
             const [_id, p] = activePointers[0];
 
-            // Reference.
             const [sc, ss, ..._] = this._transform;
             const [tx, ty] = math.subtract(
-                [p.screenX, p.screenY],
+                [p.clientX, p.clientY],
                 math.multiply([
                     [sc, -ss],
                     [ss, +sc],
@@ -135,19 +179,14 @@ class GestureHandler {
         else {
             const [_idA, a] = activePointers[0];
             const [_idB, b] = activePointers[1];
-            // const ed1 = event.touches[0];
-            // const ed2 = event.touches[1];
-            // const st1 = activeGestureStarts.get(ed1.identifier)!;
-            // const st2 = activeGestureStarts.get(ed2.identifier)!;
-            // console.assert(null != st1);
-            // console.assert(null != st2);
 
+            // https://math.stackexchange.com/a/2790865/180371
             this._transform = math.flatten(math.lusolve([
                 [a.startX, -a.startY, 1, 0],
                 [a.startY, +a.startX, 0, 1],
                 [b.startX, -b.startY, 1, 0],
                 [b.startY, +b.startX, 0, 1],
-            ], [a.screenX, a.screenY, b.screenX, b.screenY])) as [number, number, number, number];
+            ], [a.clientX, a.clientY, b.clientX, b.clientY])) as [number, number, number, number];
         }
 
         // TODO: check if transform is actually changed?
