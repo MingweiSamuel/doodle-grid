@@ -1,16 +1,22 @@
-@media (prefers-color-scheme: dark) {
-    body {
-        background-color: #222;
-        color: white;
-    }
-}
-
 body {
+    touch-action: none;
+    user-select: none;
+
     width: 100svw;
     height: 100svh;
     // https://stackoverflow.com/a/33168168/2398020
     overflow: hidden;
     position: fixed;
+
+    background-color: white;
+    color: black;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #222;
+        color: white;
+    }
 }
 
 #gesture-area {
@@ -19,9 +25,6 @@ body {
     height: 100svh;
 
     img {
-        touch-action: none;
-        user-select: none;
-
         position: absolute;
 
         // Always use pixel width.
@@ -44,4 +47,39 @@ body {
     position: absolute;
     display: flex;
     flex-wrap: wrap; // Temp
+    text-align: center;
+
+    &>* {
+        flex-grow: 1;
+    }
+
+    input[type="file"] {
+        display: none;
+    }
+
+    label,
+    button {
+        background-color: rgba(255, 255, 255, 0.5);
+        color: black;
+
+        border: 1px solid #ccc;
+        display: inline-block;
+        padding: 6px 12px;
+        cursor: pointer;
+    }
+
+    label:has(>input[type=checkbox]:checked) {
+        background-color: rgba(127, 127, 127, 0.5);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .control {
+
+        label,
+        button {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+    }
 }
