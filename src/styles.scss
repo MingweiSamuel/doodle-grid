@@ -6,23 +6,24 @@ body {
     position: fixed;
 }
 
-img {
-    touch-action: none;
-    user-select: none;
-    position: absolute;
-    width: 100svw;
-
-    transform-origin: 0 0;
-
-    &#img-ref {
-        border: 0.2svw solid grey;
-    }
-}
-
 #gesture-area {
     position: absolute;
     width: 100svw;
     height: 100svh;
+
+
+    img {
+        touch-action: none;
+        user-select: none;
+        position: absolute;
+        width: 100svw;
+
+        transform-origin: 0 0;
+
+        &#img-ref {
+            border: 0.2svw solid grey;
+        }
+    }
 }
 
 .control {

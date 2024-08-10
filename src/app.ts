@@ -40,49 +40,31 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     }
 
     {
-        const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
-        console.log(inputRepo);
-        const tfArea = {
-            angle: 0,
-            scale: 1,
-            dx: 0,
-            dy: 0,
-        }
-        const tfRef = {
-            angle: 0,
-            scale: 1,
-            dx: 0,
-            dy: 0,
-        };
-        const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
-        const area: HTMLDivElement = document.getElementById('transform-area')! as HTMLDivElement;
+        const imgBg: HTMLDivElement = document.getElementById('img-bg')! as HTMLDivElement;
         const imgRef: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
 
-        // const ongoingTouches = [];
-        // gestureArea.addEventListener('touchstart', event => {
-        //     event.preventDefault();
+        let transformArea = [1, 0, 0, 0];
+        let transformRef = [1, 0, 0, 0];
 
-        //     for (let i = 0; i < event.changedTouches.length; i++) {
-        //         const newTouch = event.changedTouches[i];
-        //         ongoingTouches.push(newTouch.identifier);
-        //     }
-        // });
-        // const mat = [
-        //     [0, 0, 1, 0],
-        //     [0, 0, 0, 1],
-        //     [100, -100, 1, 0],
-        //     [100, 100, 0, 1],
-        // ];
-        // const matInv = math.inv(mat);
+        const updateTransform = () => {
+            {
+                const [sc, ss, tx, ty] = transformArea;
+                imgBg.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+            }
+            {
+                const [sc, ss, tx, ty] = transformRef;
+                imgRef.style.transform = `${imgBg.style.transform} matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+            }
+        };
 
-        // /// a c e
-        // /// b d f
-        // /// 0 0 1
-        // let transformMatrix6 = [1, 0, 0, 1, 0, 0];
+        let transform = transformArea;
 
-        // sc, ss, tx, ty
-        // scaled cos, scaled sin, translate x, translate y
-        let transform = [1, 0, 0, 0];
+        const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
+        inputRepo.addEventListener('change', _e => {
+            transform = inputRepo.checked ? transformRef : transformArea;
+        });
+
+        const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
 
         type GestureStart = { identifier: number, x: number, y: number };
         const activeGestureStarts: GestureStart[] = [];
@@ -99,16 +81,14 @@ document.addEventListener("DOMContentLoaded", function (_event) {
             event.preventDefault();
             for (let i = 0; i < event.changedTouches.length; i++) {
                 console.log(transform);
-                const { identifier, pageX, pageY } = event.changedTouches[i];
+                const { identifier, screenX, screenY } = event.changedTouches[i];
                 const [sc, ss, tx, ty] = transform;
-                // Apply the transformation to the pageX/Y.
+                // Un-apply the transformation to the screenX/Y.
                 const [x, y, _z] = math.flatten(math.lusolve([
                     [sc, -ss, tx],
                     [ss, +sc, ty],
                     [0, 0, 1],
-                ], [pageX, pageY, 1]));
-                console.log({ x, y, _z });
-                // console.log({x, y});
+                ], [screenX, screenY, 1]));
                 activeGestureStarts.push({ identifier, x, y } as any);
             }
         });
@@ -117,53 +97,46 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
             if (1 === event.touches.length) {
                 console.assert(1 === activeGestureStarts.length, activeGestureStarts);
-                const s = activeGestureStarts[0];
-                const e = event.touches[0];
+                const st = activeGestureStarts[0];
+                const ed = event.touches[0];
 
-                // console.log(math.index([[0], [1], [2]], 0));
-                // https://math.stackexchange.com/a/2790865/180371
                 const [sc, ss, ..._] = transform;
                 const [tx, ty] = math.subtract(
-                    [e.pageX, e.pageY],
+                    [ed.screenX, ed.screenY],
                     math.multiply([
                         [sc, -ss],
                         [ss, +sc],
-                    ], [s.x, s.y])
+                    ], [st.x, st.y])
                 );
                 transform[2] = tx;
                 transform[3] = ty;
-                // transform = math.flatten(math.lusolve([
-                //     [0, 0, 1, 0],
-                //     [0, 0, 0, 1],
-                //     [s.x, -s.y, 1, 0],
-                //     [s.y, +s.x, 0, 1],
-                // ], [0, 0, e.pageX, e.pageY])) as number[];
             }
             else if (2 === event.touches.length) {
-                const e1 = event.touches[0];
-                const e2 = event.touches[1];
-                const s1 = activeGestureStarts[findActiveGestureIdx(e1)];
-                const s2 = activeGestureStarts[findActiveGestureIdx(e2)];
+                const ed1 = event.touches[0];
+                const ed2 = event.touches[1];
+                const st1 = activeGestureStarts[findActiveGestureIdx(ed1)];
+                const st2 = activeGestureStarts[findActiveGestureIdx(ed2)];
 
                 // https://math.stackexchange.com/a/2790865/180371
                 transform = math.flatten(math.lusolve([
-                    [s1.x, -s1.y, 1, 0],
-                    [s1.y, +s1.x, 0, 1],
-                    [s2.x, -s2.y, 1, 0],
-                    [s2.y, +s2.x, 0, 1],
-                ], [e1.pageX, e1.pageY, e2.pageX, e2.pageY])) as number[];
+                    [st1.x, -st1.y, 1, 0],
+                    [st1.y, +st1.x, 0, 1],
+                    [st2.x, -st2.y, 1, 0],
+                    [st2.y, +st2.x, 0, 1],
+                ], [ed1.screenX, ed1.screenY, ed2.screenX, ed2.screenY])) as number[];
             }
             else {
-
+                console.log('Too many points!');
             }
 
-            {
-                const [sc, ss, tx, ty] = transform;
-                imgRef.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+            if (inputRepo.checked) {
+                transformRef = transform;
+            } else {
+                transformArea = transform;
             }
+            updateTransform();
         });
         const touchEnd = (event: TouchEvent) => {
-            outer:
             for (let i = 0; i < event.changedTouches.length; i++) {
                 const j = findActiveGestureIdx(event.changedTouches[i])
                 if (0 <= j) {
