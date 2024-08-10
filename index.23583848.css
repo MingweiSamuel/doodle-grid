@@ -1,0 +1,2 @@
+@media (prefers-color-scheme:dark){body{color:#fff;background-color:#222}}body{width:100svw;height:100svh;position:fixed;overflow:hidden}#gesture-area{width:100svw;height:100svh;position:absolute}#gesture-area img{touch-action:none;-webkit-user-select:none;user-select:none;transform-origin:0 0;width:auto;max-width:none;position:absolute}#gesture-area img#img-ref{border:.2svw solid gray}#gesture-area img[src="data:,"]{display:none}.control{flex-wrap:wrap;display:flex;position:absolute}
+/*# sourceMappingURL=index.23583848.css.map */
