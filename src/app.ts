@@ -40,134 +40,118 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     }
 
     {
-        const imgBg: HTMLDivElement = document.getElementById('img-bg')! as HTMLDivElement;
-        const imgRf: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
-
-        let transformBg = [1, 0, 0, 0];
-        let transformRf = [1, 0, 0, 0];
-
-        const updateTransform = () => {
-            const svw = 100 / window.innerWidth;
-            {
-                const [sc, ss, tx, ty] = transformBg;
-                imgBg.style.transform = `translate(${svw * tx}svw, ${svw * ty}svw) matrix(${sc}, ${ss}, ${-ss}, ${sc}, 0, 0)`;
-                console.log(imgBg.style.transform);
-            }
-            {
-                const [sc, ss, tx, ty] = transformRf;
-                imgRf.style.transform = `translate(${svw * tx}svw, ${svw * ty}svw) matrix(${sc}, ${ss}, ${-ss}, ${sc}, 0, 0)`;
-            }
-        };
-
         const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
-        const activeGestureStarts: Map<number, { bgX: number, bgY: number, rfX: number, rfY: number }> = new Map();
-
+        const ghBg = new GestureHandler(document.getElementById('img-bg')!);
+        const ghRf = new GestureHandler(document.getElementById('img-ref')!);
         const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
         gestureArea.addEventListener('touchstart', event => {
-            event.preventDefault();
             for (let i = 0; i < event.changedTouches.length; i++) {
-                const { identifier, screenX, screenY } = event.changedTouches[i];
-
-                // Un-apply the transformation to the screenX/Y.
-
-                // Background.
-                let [sc, ss, tx, ty] = transformBg;
-                const [bgX, bgY, _bgZ] = math.flatten(math.lusolve([
-                    [sc, -ss, tx],
-                    [ss, +sc, ty],
-                    [0, 0, 1],
-                ], [screenX, screenY, 1]));
-
-                // Reference image.
-                ([sc, ss, tx, ty] = transformRf);
-                const [rfX, rfY, _rfZ] = math.flatten(math.lusolve([
-                    [sc, -ss, tx],
-                    [ss, +sc, ty],
-                    [0, 0, 1],
-                ], [screenX, screenY, 1]));
-
-                activeGestureStarts.set(identifier, { bgX, bgY, rfX, rfY } as any);
+                const pointer = event.changedTouches[i];
+                if (!inputRepo.checked) ghBg.start(pointer);
+                ghRf.start(pointer);
             }
         });
         gestureArea.addEventListener('touchmove', event => {
-            event.preventDefault();
-
-            if (1 === event.touches.length) {
-                const ed = event.touches[0];
-                const st = activeGestureStarts.get(ed.identifier)!;
-                console.assert(null != st);
-
-                if (!inputRepo.checked) {
-                    // Background.
-                    const [sc, ss, ..._] = transformBg;
-                    const [tx, ty] = math.subtract(
-                        [ed.screenX, ed.screenY],
-                        math.multiply([
-                            [sc, -ss],
-                            [ss, +sc],
-                        ], [st.bgX, st.bgY])
-                    );
-                    transformBg[2] = tx;
-                    transformBg[3] = ty;
-                }
-
-                {
-                    // Reference.
-                    const [sc, ss, ..._] = transformRf;
-                    const [tx, ty] = math.subtract(
-                        [ed.screenX, ed.screenY],
-                        math.multiply([
-                            [sc, -ss],
-                            [ss, +sc],
-                        ], [st.rfX, st.rfY])
-                    );
-                    transformRf[2] = tx;
-                    transformRf[3] = ty;
-                }
+            for (let i = 0; i < event.changedTouches.length; i++) {
+                const pointer = event.changedTouches[i];
+                if (!inputRepo.checked) ghBg.move(pointer);
+                ghRf.move(pointer);
             }
-            else if (2 === event.touches.length) {
-                const ed1 = event.touches[0];
-                const ed2 = event.touches[1];
-                const st1 = activeGestureStarts.get(ed1.identifier)!;
-                const st2 = activeGestureStarts.get(ed2.identifier)!;
-                console.assert(null != st1);
-                console.assert(null != st2);
-
-                // https://math.stackexchange.com/a/2790865/180371
-                if (!inputRepo.checked) {
-                    transformBg = math.flatten(math.lusolve([
-                        [st1.bgX, -st1.bgY, 1, 0],
-                        [st1.bgY, +st1.bgX, 0, 1],
-                        [st2.bgX, -st2.bgY, 1, 0],
-                        [st2.bgY, +st2.bgX, 0, 1],
-                    ], [ed1.screenX, ed1.screenY, ed2.screenX, ed2.screenY])) as number[];
-                }
-
-                {
-                    transformRf = math.flatten(math.lusolve([
-                        [st1.rfX, -st1.rfY, 1, 0],
-                        [st1.rfY, +st1.rfX, 0, 1],
-                        [st2.rfX, -st2.rfY, 1, 0],
-                        [st2.rfY, +st2.rfX, 0, 1],
-                    ], [ed1.screenX, ed1.screenY, ed2.screenX, ed2.screenY])) as number[];
-
-                }
-            }
-            else {
-                console.log('Too many points!');
-            }
-
-            updateTransform();
         });
         const touchEnd = (event: TouchEvent) => {
             for (let i = 0; i < event.changedTouches.length; i++) {
-                const touchEnd = event.changedTouches[i];
-                if (!activeGestureStarts.delete(touchEnd.identifier)) {
-                    console.error('Could not find activeGestureStart for event:', touchEnd);
-                }
+                const pointer = event.changedTouches[i];
+                if (!inputRepo.checked) ghBg.end(pointer);
+                ghRf.end(pointer);
             }
         };
         gestureArea.addEventListener('touchcancel', touchEnd);
         gestureArea.addEventListener('touchend', touchEnd);
     }
 });
+
+type Pointer = { identifier: number, screenX: number, screenY: number };
+
+class GestureHandler {
+    _activePointers: Map<Number, { startX: number, startY: number, screenX: number, screenY: number }> = new Map();
+    _transform: [number, number, number, number] = [1, 0, 0, 0];
+    _target: HTMLElement;
+
+    constructor(transformTarget: HTMLElement) {
+        this._target = transformTarget;
+    }
+
+    start({ screenX, screenY, identifier }: Pointer): void {
+        const [sc, ss, tx, ty] = this._transform;
+        const [startX, startY, _z] = math.flatten(math.lusolve([
+            [sc, -ss, tx],
+            [ss, +sc, ty],
+            [0, 0, 1],
+        ], [screenX, screenY, 1])) as [number, number, 1];
+        this._activePointers.set(identifier, {
+            startX, startY, screenX, screenY
+        });
+    }
+
+    move({ screenX, screenY, identifier }: Pointer): void {
+        const active = this._activePointers.get(identifier);
+        if (null == active) return;
+
+        this._activePointers.set(identifier, {
+            ...active,
+            screenX,
+            screenY,
+        });
+
+        this._update();
+    }
+
+    end({ identifier }: Pointer): void {
+        if (!this._activePointers.delete(identifier)) {
+            console.error('Failed to remove activePointer with identifier:', identifier);
+        }
+    }
+
+    _update(): void {
+        const activePointers = Array.from(this._activePointers);
+        if (0 === activePointers.length) {
+            return;
+        }
+        else if (1 === activePointers.length) {
+            const [_id, p] = activePointers[0];
+
+            // Reference.
+            const [sc, ss, ..._] = this._transform;
+            const [tx, ty] = math.subtract(
+                [p.screenX, p.screenY],
+                math.multiply([
+                    [sc, -ss],
+                    [ss, +sc],
+                ], [p.startX, p.startY])
+            );
+            this._transform[2] = tx;
+            this._transform[3] = ty;
+        }
+        else {
+            const [_idA, a] = activePointers[0];
+            const [_idB, b] = activePointers[1];
+            // const ed1 = event.touches[0];
+            // const ed2 = event.touches[1];
+            // const st1 = activeGestureStarts.get(ed1.identifier)!;
+            // const st2 = activeGestureStarts.get(ed2.identifier)!;
+            // console.assert(null != st1);
+            // console.assert(null != st2);
+
+            this._transform = math.flatten(math.lusolve([
+                [a.startX, -a.startY, 1, 0],
+                [a.startY, +a.startX, 0, 1],
+                [b.startX, -b.startY, 1, 0],
+                [b.startY, +b.startX, 0, 1],
+            ], [a.screenX, a.screenY, b.screenX, b.screenY])) as [number, number, number, number];
+        }
+
+        // TODO: check if transform is actually changed?
+        const [sc, ss, tx, ty] = this._transform;
+        this._target.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+    }
+};
