@@ -28,24 +28,26 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         });
     }
 
+    const fileHandler = (img: HTMLImageElement) => (event: Event & { target: HTMLInputElement }) => {
+        const file = event.target?.files?.[0];
+        if (file) {
+            img.src = URL.createObjectURL(file);
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                const dataUrl = e.target!.result! as string;
+                localStorage.setItem(event.target.name, dataUrl);
+            }
+            reader.readAsDataURL(file);
+        }
+    };
+
     {
         const inputBg: HTMLInputElement = document.querySelector('input[type=file][name=input-bg]')! as HTMLInputElement;
         const imgBg: HTMLImageElement = document.getElementById('img-bg')! as HTMLImageElement;
-        inputBg.addEventListener('change', _e => {
-            const file = inputBg.files?.[0];
-            if (file) {
-                imgBg.src = URL.createObjectURL(file);
-
-                const reader = new FileReader();
-                reader.onload = e => {
-                    const dataUrl = e.target!.result! as string;
-                    localStorage.setItem('img-bg', dataUrl);
-                }
-                reader.readAsDataURL(file);
-            }
-        });
+        inputBg.addEventListener('change', fileHandler(imgBg));
         {
-            const saved = localStorage.getItem('img-bg');
+            const saved = localStorage.getItem(inputBg.name);
             if (null != saved) imgBg.src = saved;
         }
     }
@@ -53,21 +55,9 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     {
         const inputRef: HTMLInputElement = document.querySelector('input[type=file][name=input-ref]')! as HTMLInputElement;
         const imgRef: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
-        inputRef.addEventListener('change', _e => {
-            const file = inputRef.files?.[0];
-            if (file) {
-                imgRef.src = URL.createObjectURL(file);
-
-                const reader = new FileReader();
-                reader.onload = _e => {
-                    const dataUrl = reader.result as string;
-                    localStorage.setItem('img-ref', dataUrl);
-                }
-                reader.readAsDataURL(file);
-            }
-        });
+        inputRef.addEventListener('change', fileHandler(imgRef));
         {
-            const saved = localStorage.getItem('img-ref');
+            const saved = localStorage.getItem(inputRef.name);
             if (null != saved) imgRef.src = saved;
         }
 
