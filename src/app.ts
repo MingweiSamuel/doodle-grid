@@ -6,9 +6,14 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     {
         const buttonFs: HTMLButtonElement = document.getElementById('button-fs')! as HTMLButtonElement;
         buttonFs.addEventListener('click', _e => {
-            document.body.requestFullscreen({
-                navigationUI: 'hide',
-            });
+            if (null == document.fullscreenElement) {
+                document.body.requestFullscreen({
+                    navigationUI: 'hide',
+                });
+            }
+            else {
+                document.exitFullscreen();
+            }
         });
     }
 
