@@ -18,24 +18,26 @@
     <img id="img-ref" src="data:," />
   </div>
   <div class="control">
-    <button id="button-fs">⛶</button>
-    <label class="file">
+    <button id="button-hide">&lt;</button>
+    <label class="grow">
       📂 Background
       <input type="file" name="input-bg" accept="image/*" />
     </label>
-    <label class="file">
+    <label class="grow" class="grow">
       📂 Reference
       <input type="file" name="input-ref" accept="image/*" />
     </label>
-    <label>
+    <label class="grow">
       <input type="checkbox" name="input-repo" />
       Reposition
     </label>
-    <label>
+    <label class="grow">
       Opacity
       <input type="range" name="input-opacity" min="0" max="100" value="50" />
     </label>
-    <button id="button-save">💾 Save</button>
+    <button id="button-save" class="grow">📥 Save</button>
+    <button id="button-reset">⟳</button>
+    <button id="button-fs">⛶</button>
   </div>
 </body>
 

@@ -11,14 +11,43 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     }
 
     {
+        const buttonHide: HTMLButtonElement = document.getElementById('button-hide')! as HTMLButtonElement;
+        buttonHide.addEventListener('click', _e => {
+            const hidden = buttonHide.parentElement!.classList.toggle('hidden');
+            buttonHide.innerText = hidden ? '>' : '<';
+        });
+    }
+
+    {
+        const buttonReset: HTMLButtonElement = document.getElementById('button-reset')! as HTMLButtonElement;
+        buttonReset.addEventListener('click', _e => {
+            if (confirm('Are you sure you want to reset the grid?')) {
+                localStorage.clear();
+                location.reload();
+            }
+        });
+    }
+
+    {
         const inputBg: HTMLInputElement = document.querySelector('input[type=file][name=input-bg]')! as HTMLInputElement;
         const imgBg: HTMLImageElement = document.getElementById('img-bg')! as HTMLImageElement;
         inputBg.addEventListener('change', _e => {
             const file = inputBg.files?.[0];
             if (file) {
-                imgBg.src = URL.createObjectURL(file)
+                imgBg.src = URL.createObjectURL(file);
+
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const dataUrl = e.target!.result! as string;
+                    localStorage.setItem('img-bg', dataUrl);
+                }
+                reader.readAsDataURL(file);
             }
         });
+        {
+            const saved = localStorage.getItem('img-bg');
+            if (null != saved) imgBg.src = saved;
+        }
     }
 
     {
@@ -27,9 +56,20 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         inputRef.addEventListener('change', _e => {
             const file = inputRef.files?.[0];
             if (file) {
-                imgRef.src = URL.createObjectURL(file)
+                imgRef.src = URL.createObjectURL(file);
+
+                const reader = new FileReader();
+                reader.onload = _e => {
+                    const dataUrl = reader.result as string;
+                    localStorage.setItem('img-ref', dataUrl);
+                }
+                reader.readAsDataURL(file);
             }
         });
+        {
+            const saved = localStorage.getItem('img-ref');
+            if (null != saved) imgRef.src = saved;
+        }
 
         const inputOpacity: HTMLInputElement = document.querySelector('input[type=range][name=input-opacity]')! as HTMLInputElement;
         const updateOpacity = (): void => {
@@ -44,8 +84,8 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
     const imgBg = document.getElementById('img-bg')! as HTMLImageElement;
     const imgRf = document.getElementById('img-ref')! as HTMLImageElement;
-    const ghBg = new GestureHandler(imgBg);
-    const ghRf = new GestureHandler(imgRf);
+    const ghBg = new GestureHandler(imgBg, JSON.parse(localStorage.getItem('tf-bg') || 'null'));
+    const ghRf = new GestureHandler(imgRf, JSON.parse(localStorage.getItem('tf-ref') || 'null'));
     const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
     gestureArea.addEventListener('pointerdown', event => {
         event.preventDefault();
@@ -91,6 +131,9 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         }
         ghRf.end(event);
         ghRf.end({ pointerId: PSEUDO_POINTER_ID });
+
+        localStorage.setItem('tf-bg', JSON.stringify(ghBg._transform));
+        localStorage.setItem('tf-ref', JSON.stringify(ghRf._transform));
     };
     gestureArea.addEventListener('pointercancel', pointerEnd);
     gestureArea.addEventListener('pointerup', pointerEnd);
@@ -154,8 +197,12 @@ class GestureHandler {
     _transform: [number, number, number, number] = [1, 0, 0, 0];
     _target: HTMLElement;
 
-    constructor(transformTarget: HTMLElement) {
+    constructor(transformTarget: HTMLElement, transform?: [number, number, number, number]) {
         this._target = transformTarget;
+        if (null != transform) {
+            this._transform = transform;
+            this._update();
+        }
     }
 
     start({ clientX, clientY, pointerId }: Pointer): void {
@@ -210,7 +257,7 @@ class GestureHandler {
     _update(): void {
         const activePointers = Array.from(this._activePointers);
         if (0 === activePointers.length) {
-            return;
+            // No change.
         }
         else if (1 === activePointers.length) {
             const [_id, p] = activePointers[0];

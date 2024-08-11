@@ -50,7 +50,14 @@ body {
     text-align: center;
 
     &>* {
+        flex-grow: 0.1;
+    }
+    &>.grow {
         flex-grow: 1;
+    }
+
+    input {
+        vertical-align: middle;
     }
 
     input[type="file"] {
@@ -70,6 +77,10 @@ body {
 
     label:has(>input[type=checkbox]:checked) {
         background-color: rgba(127, 127, 127, 0.5);
+    }
+
+    &.hidden :not(#button-hide) {
+        display: none;
     }
 }
 
