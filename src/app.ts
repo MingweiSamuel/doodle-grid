@@ -1,5 +1,7 @@
 import * as math from 'mathjs';
 
+const hasWebP = document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') == 0;
+
 document.addEventListener("DOMContentLoaded", function (_event) {
     {
         const buttonFs: HTMLButtonElement = document.getElementById('button-fs')! as HTMLButtonElement;
@@ -32,7 +34,7 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         const file = event.target?.files?.[0];
         if (file) {
             // 2.4 MB.
-            const MAX_SIZE = 2.4 * 1000 * 1000;
+            const MAX_SIZE = 2 * 1000 * 1000;
             if (file.size < MAX_SIZE) {
                 // Smaller, save as-is.
                 const reader = new FileReader();
@@ -43,21 +45,16 @@ document.addEventListener("DOMContentLoaded", function (_event) {
                 reader.readAsDataURL(file);
             }
             else {
-                // Large, set jpeg quality proportionally.
+                // Large, re-encode as webp or lower-quality jpg.
                 img.onload = _e => {
                     const canvas = document.createElement('canvas');
                     canvas.width = img.width;
                     canvas.height = img.height;
-                    document.body.appendChild(canvas);
 
                     const ctx = canvas.getContext('2d')!;
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7 * MAX_SIZE / file.size);
-                    try {
-                        localStorage.setItem(event.target.name, dataUrl);
-                    } finally {
-                        canvas.remove();
-                    }
+                    const dataUrl = canvas.toDataURL(hasWebP ? 'image/webp' : 'image/jpeg', hasWebP ? 0.9 : 0.7);
+                    localStorage.setItem(event.target.name, dataUrl);
                 };
             }
 
@@ -169,7 +166,6 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         const canvas = document.createElement('canvas');
         canvas.width = window.innerWidth * scale;
         canvas.height = window.innerHeight * scale;
-        document.body.appendChild(canvas);
 
         const ctx = canvas.getContext('2d')!;
         if (10 < imgBg.src.length) {
@@ -198,8 +194,7 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
             URL.revokeObjectURL(blobUrl);
             anchor.remove();
-            canvas.remove();
-        }, 'image/jpeg', 0.95);
+        }, hasWebP ? 'image/webp' : 'image/jpeg', 0.9);
     });
 });
 
