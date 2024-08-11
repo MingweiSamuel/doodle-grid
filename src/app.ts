@@ -31,14 +31,37 @@ document.addEventListener("DOMContentLoaded", function (_event) {
     const fileHandler = (img: HTMLImageElement) => (event: Event & { target: HTMLInputElement }) => {
         const file = event.target?.files?.[0];
         if (file) {
-            img.src = URL.createObjectURL(file);
-
-            const reader = new FileReader();
-            reader.onload = e => {
-                const dataUrl = e.target!.result! as string;
-                localStorage.setItem(event.target.name, dataUrl);
+            // 2.4 MB.
+            const MAX_SIZE = 2.4 * 1000 * 1000;
+            if (file.size < MAX_SIZE) {
+                // Smaller, save as-is.
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const dataUrl = e.target!.result! as string;
+                    localStorage.setItem(event.target.name, dataUrl);
+                }
+                reader.readAsDataURL(file);
             }
-            reader.readAsDataURL(file);
+            else {
+                // Large, set jpeg quality proportionally.
+                img.onload = _e => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    document.body.appendChild(canvas);
+
+                    const ctx = canvas.getContext('2d')!;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7 * MAX_SIZE / file.size);
+                    try {
+                        localStorage.setItem(event.target.name, dataUrl);
+                    } finally {
+                        canvas.remove();
+                    }
+                };
+            }
+
+            img.src = URL.createObjectURL(file);
         }
     };
 
@@ -148,7 +171,7 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         canvas.height = window.innerHeight * scale;
         document.body.appendChild(canvas);
 
-        const ctx = canvas.getContext("2d")!;
+        const ctx = canvas.getContext('2d')!;
         if (10 < imgBg.src.length) {
             const [sc, ss, tx, ty] = ghBg._transform;
             ctx.globalAlpha = 1.0;
@@ -169,14 +192,14 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
             document.body.appendChild(anchor);
             anchor.setAttribute('target', '_blank');
-            anchor.setAttribute('download', 'doodlegrid.webp');
+            anchor.setAttribute('download', 'doodlegrid.jpg');
             anchor.setAttribute('href', blobUrl);
             anchor.click();
 
             URL.revokeObjectURL(blobUrl);
             anchor.remove();
             canvas.remove();
-        }, 'image/webp', 0.9);
+        }, 'image/jpeg', 0.95);
     });
 });
 
