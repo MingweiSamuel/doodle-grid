@@ -2,7 +2,10 @@ import { manifest, version } from '@parcel/service-worker';
 console.log('service-worker:', { manifest, version, href: location.href });
 
 async function onInstall() {
-    const manifestRelative = manifest.map(file => file.replace(/^\//, ''));
+    const manifestRelative = [
+        '.',
+        ...manifest.map(file => file.replace(/^\//, ''))
+    ];
     console.log('install: caching manifest', manifestRelative);
     const cache = await caches.open(version);
     await cache.addAll(manifestRelative);
@@ -25,13 +28,13 @@ async function onActivate() {
 }
 addEventListener('activate', e => e.waitUntil(onActivate()));
 
-async function onFetch(event: FetchEvent): Promise<Response> {
-    const cacheResponse = await caches.match(event.request, { ignoreSearch: true });
-    console.log('fetch: url', event.request.url, 'hit', null != cacheResponse);
+async function onFetch(request: Request): Promise<Response> {
+    const cacheResponse = await caches.match(request, { ignoreSearch: true });
+    console.log('fetch: url', request.url, 'hit', null != cacheResponse);
     if (cacheResponse !== undefined) {
         return cacheResponse;
     } else {
-        return await fetch(event.request);
+        return await fetch(request);
     }
 }
-self.addEventListener('fetch', (e: FetchEvent) => e.respondWith(onFetch(e)));
+self.addEventListener('fetch', (e: FetchEvent) => e.respondWith(onFetch(e.request)));
