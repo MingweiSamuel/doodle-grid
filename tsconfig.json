@@ -3,6 +3,7 @@
         "lib": [
             "DOM",
             "ES2015",
+            "WebWorker",
         ],
         "isolatedModules": true,
         "declaration": true,
@@ -16,6 +17,9 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "strictNullChecks": true,
-        "strictPropertyInitialization": true
-    }
+        "strictPropertyInitialization": true,
+    },
+    "include": [
+        "src/service-worker.ts"
+    ]
 }
