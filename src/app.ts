@@ -35,56 +35,53 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         });
     }
 
-    const fileHandler = (img: HTMLImageElement) => (event: Event & { target: HTMLInputElement }) => {
-        const file = event.target?.files?.[0];
-        if (file) {
-            // 2.4 MB.
-            const MAX_SIZE = 2 * 1000 * 1000;
-            if (file.size < MAX_SIZE) {
-                // Smaller, save as-is.
-                const reader = new FileReader();
-                reader.onload = e => {
-                    const dataUrl = e.target!.result! as string;
-                    localStorage.setItem(event.target.name, dataUrl);
+    const setupFileInput = (input: HTMLInputElement, img: HTMLImageElement): void => {
+        const saved = localStorage.getItem(input.name);
+        if (null != saved) img.src = saved;
+
+        input.addEventListener('change', ((event: Event & { target: HTMLInputElement }) => {
+            const file = event.target?.files?.[0];
+            if (file) {
+                // 2.4 MB.
+                const MAX_SIZE = 2 * 1000 * 1000;
+                if (file.size < MAX_SIZE) {
+                    // Smaller, save as-is.
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        const dataUrl = e.target!.result! as string;
+                        localStorage.setItem(event.target.name, dataUrl);
+                    }
+                    reader.readAsDataURL(file);
                 }
-                reader.readAsDataURL(file);
-            }
-            else {
-                // Large, re-encode as webp or lower-quality jpg.
-                img.onload = _e => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
+                else {
+                    // Large, re-encode as webp or lower-quality jpg.
+                    img.onload = _e => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
 
-                    const ctx = canvas.getContext('2d')!;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    const dataUrl = canvas.toDataURL(hasWebP ? 'image/webp' : 'image/jpeg', hasWebP ? 0.9 : 0.7);
-                    localStorage.setItem(event.target.name, dataUrl);
-                };
-            }
+                        const ctx = canvas.getContext('2d')!;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const dataUrl = canvas.toDataURL(hasWebP ? 'image/webp' : 'image/jpeg', hasWebP ? 0.9 : 0.7);
+                        localStorage.setItem(event.target.name, dataUrl);
+                    };
+                }
 
-            img.src = URL.createObjectURL(file);
-        }
+                img.src = URL.createObjectURL(file);
+            }
+        }) as (e: Event) => void);
     };
 
     {
         const inputBg: HTMLInputElement = document.querySelector('input[type=file][name=input-bg]')! as HTMLInputElement;
         const imgBg: HTMLImageElement = document.getElementById('img-bg')! as HTMLImageElement;
-        inputBg.addEventListener('change', fileHandler(imgBg));
-        {
-            const saved = localStorage.getItem(inputBg.name);
-            if (null != saved) imgBg.src = saved;
-        }
+        setupFileInput(inputBg, imgBg);
     }
 
     {
         const inputRef: HTMLInputElement = document.querySelector('input[type=file][name=input-ref]')! as HTMLInputElement;
         const imgRef: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
-        inputRef.addEventListener('change', fileHandler(imgRef));
-        {
-            const saved = localStorage.getItem(inputRef.name);
-            if (null != saved) imgRef.src = saved;
-        }
+        setupFileInput(inputRef, imgRef);
 
         const inputOpacity: HTMLInputElement = document.querySelector('input[type=range][name=input-opacity]')! as HTMLInputElement;
         const updateOpacity = (): void => {
