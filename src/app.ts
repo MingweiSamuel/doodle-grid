@@ -91,14 +91,32 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         updateOpacity();
     }
 
+    let updateTid: number | undefined = undefined;
+    const updateStorage = () => {
+        clearTimeout(updateTid);
+        updateTid = setTimeout(() => {
+            localStorage.setItem('tf-bg', JSON.stringify(ghBg._transform));
+            localStorage.setItem('tf-ref', JSON.stringify(ghRf._transform));
+        }, 250);
+    };
+
     const PSEUDO_POINTER_ID = -1;
 
-    const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
     const imgBg = document.getElementById('img-bg')! as HTMLImageElement;
+    const ghBg = new GestureHandler(([sc, ss, tx, ty]) => {
+        imgBg.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+        updateStorage();
+    }, JSON.parse(localStorage.getItem('tf-bg') || 'null'));
+
     const imgRf = document.getElementById('img-ref')! as HTMLImageElement;
-    const ghBg = new GestureHandler(imgBg, JSON.parse(localStorage.getItem('tf-bg') || 'null'));
-    const ghRf = new GestureHandler(imgRf, JSON.parse(localStorage.getItem('tf-ref') || 'null'));
+    const ghRf = new GestureHandler(([sc, ss, tx, ty]) => {
+        imgRf.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+        updateStorage();
+    }, JSON.parse(localStorage.getItem('tf-ref') || 'null'));
+
+    const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
     const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
+
     gestureArea.addEventListener('pointerdown', event => {
         event.preventDefault();
         if (!inputRepo.checked) ghBg.start(event);
@@ -130,11 +148,13 @@ document.addEventListener("DOMContentLoaded", function (_event) {
             }
         }
     });
+
     gestureArea.addEventListener('pointermove', event => {
         event.preventDefault();
         if (!inputRepo.checked) ghBg.move(event);
         ghRf.move(event);
     });
+
     const pointerEnd = (event: PointerEvent) => {
         event.preventDefault();
         if (!inputRepo.checked) {
@@ -143,15 +163,22 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         }
         ghRf.end(event);
         ghRf.end({ pointerId: PSEUDO_POINTER_ID });
-
-        localStorage.setItem('tf-bg', JSON.stringify(ghBg._transform));
-        localStorage.setItem('tf-ref', JSON.stringify(ghRf._transform));
     };
     gestureArea.addEventListener('pointercancel', pointerEnd);
     gestureArea.addEventListener('pointerup', pointerEnd);
     gestureArea.addEventListener('contextmenu', e => {
         e.preventDefault();
         return false;
+    });
+
+    gestureArea.addEventListener('wheel', e => {
+        if (e.metaKey || e.altKey || e.ctrlKey) return;
+
+        const scale = 1.0 - e.deltaY / 2000;
+        if (!inputRepo.checked) {
+            ghBg.zoom(e, scale);
+        }
+        ghRf.zoom(e, scale);
     });
 
     const buttonSave: HTMLButtonElement = document.getElementById('button-save')! as HTMLButtonElement;
@@ -204,11 +231,12 @@ type Pointer = { pointerId: number, clientX: number, clientY: number };
 
 class GestureHandler {
     _activePointers: Map<Number, { startX: number, startY: number, clientX: number, clientY: number }> = new Map();
-    _transform: [number, number, number, number] = [1, 0, 0, 0];
+    _transform: [sc: number, ss: number, tx: number, ty: number] = [1, 0, 0, 0];
     _target: HTMLElement;
+    _onUpdate: (_: [sc: number, ss: number, tx: number, ty: number]) => void;
 
-    constructor(transformTarget: HTMLElement, transform?: [number, number, number, number]) {
-        this._target = transformTarget;
+    constructor(onUpdate: (_: [sc: number, ss: number, tx: number, ty: number]) => any, transform?: [number, number, number, number]) {
+        this._onUpdate = onUpdate;
         if (null != transform) {
             this._transform = transform;
             this._update();
@@ -216,7 +244,7 @@ class GestureHandler {
     }
 
     start({ clientX, clientY, pointerId }: Pointer): void {
-        const [startX, startY] = this.screenToImageXy({ clientX, clientY });
+        const [startX, startY] = this.clientToImageXy({ clientX, clientY });
         this._activePointers.set(pointerId, {
             startX, startY, clientX, clientY
         });
@@ -239,6 +267,16 @@ class GestureHandler {
         this._activePointers.delete(pointerId);
     }
 
+    zoom({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">, ratio: number): void {
+        this._transform[0] *= ratio;
+        this._transform[1] *= ratio;
+        this._transform[2] *= ratio;
+        this._transform[2] += clientX * (1 - ratio);
+        this._transform[3] *= ratio;
+        this._transform[3] += clientY * (1 - ratio);
+        this._update();
+    }
+
     scale(): number {
         const [sc, ss, ..._] = this._transform;
         return Math.sqrt(sc * sc + ss * ss);
@@ -254,7 +292,7 @@ class GestureHandler {
         return [sx, sy];
     }
 
-    screenToImageXy({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">): [number, number] {
+    clientToImageXy({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">): [number, number] {
         const [sc, ss, tx, ty] = this._transform;
         const [x, y, _z] = math.flatten(math.lusolve([
             [sc, -ss, tx],
@@ -297,7 +335,16 @@ class GestureHandler {
         }
 
         // TODO: check if transform is actually changed?
-        const [sc, ss, tx, ty] = this._transform;
-        this._target.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
+        this._onUpdate(this._transform);
     }
 };
+
+const debounce = (callback: () => void, millis: number) => {
+    let timeoutId: number | undefined = undefined;
+    return () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            (callback)();
+        }, millis);
+    };
+}
