@@ -1,19 +1,17 @@
 import { manifest, version } from '@parcel/service-worker';
-console.log('service-worker:', { manifest, version, href: location.href });
 
-async function onInstall() {
-    const manifestRelative = [
-        '.',
-        ...manifest.map(file => file.replace(/^\//, ''))
-    ];
-    console.log('install: caching manifest', manifestRelative);
+const manifestRelative = [
+    '.',
+    ...manifest.map(file => file.replace(/^\//, '')),
+]
+console.log('service-worker:', { manifestRelative, version });
+
+async function refreshCache() {
     const cache = await caches.open(version);
     await cache.addAll(manifestRelative);
 }
-addEventListener('install', e => e.waitUntil(onInstall()));
 
-async function onActivate() {
-    console.log('activate: clearing old cache keys');
+async function cleanCache() {
     const keys = await caches.keys();
     await Promise.all(
         keys.map(key => {
@@ -26,7 +24,6 @@ async function onActivate() {
         })
     );
 }
-addEventListener('activate', e => e.waitUntil(onActivate()));
 
 async function onFetch(request: Request): Promise<Response> {
     const cacheResponse = await caches.match(request, { ignoreSearch: true });
@@ -37,4 +34,22 @@ async function onFetch(request: Request): Promise<Response> {
         return await fetch(request);
     }
 }
-self.addEventListener('fetch', (e: FetchEvent) => e.respondWith(onFetch(e.request)));
+
+addEventListener('install', e => {
+    console.log('install');
+    e.waitUntil(refreshCache());
+});
+
+addEventListener('activate', e => {
+    console.log('activate');
+    e.waitUntil(cleanCache());
+});
+
+addEventListener('fetch', (e: FetchEvent) => e.respondWith(onFetch(e.request)));
+
+/// https://developer.mozilla.org/en-US/docs/Web/API/PeriodicSyncEvent
+type PeriodicSyncEvent = { tag: string } & ExtendableEvent;
+addEventListener('periodicsync', (e: PeriodicSyncEvent) => {
+    console.log('periodicsync:', e.tag);
+    e.waitUntil(refreshCache());
+});

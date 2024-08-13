@@ -18,6 +18,17 @@
   <script type="module">
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register(new URL('service-worker.ts', import.meta.url), { type: 'module' });
+      navigator.serviceWorker.ready.then(async registration => {
+        try {
+          await registration.periodicSync.register('update', {
+            // try to update every 24 hours
+            minInterval: 24 * 60 * 60 * 1000,
+          });
+        }
+        catch (e) {
+          console.log('`periodicsync` not supported', e);
+        }
+      });
     }
   </script>
   <script type="module" src="app.ts"></script>
