@@ -338,13 +338,3 @@ class GestureHandler {
         this._onUpdate(this._transform);
     }
 };
-
-const debounce = (callback: () => void, millis: number) => {
-    let timeoutId: number | undefined = undefined;
-    return () => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-            (callback)();
-        }, millis);
-    };
-}
