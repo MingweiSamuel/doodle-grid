@@ -1,8 +1,10 @@
 import { manifest, version } from '@parcel/service-worker';
 
+import { BASE_PATHNAME, EDIT_REGEX } from './path';
+
 const manifestRelative = [
-    '.',
-    ...manifest.map(file => file.replace(/^\//, '')),
+    BASE_PATHNAME,
+    ...manifest.map(file => file.replace(/^\//, BASE_PATHNAME)),
 ]
 console.log('service-worker:', { manifestRelative, version });
 
@@ -26,9 +28,14 @@ async function cleanCache() {
 }
 
 async function onFetch(request: Request): Promise<Response> {
-    const cacheResponse = await caches.match(request, { ignoreSearch: true });
+    let url = request.url;
+    if (EDIT_REGEX.test(url)) {
+        url = BASE_PATHNAME;
+    }
+    const cacheResponse = await caches.match(url, { ignoreSearch: true });
+
     console.log('fetch: url', request.url, 'hit', null != cacheResponse);
-    if (cacheResponse !== undefined) {
+    if (null != cacheResponse) {
         return cacheResponse;
     } else {
         return await fetch(request);
@@ -49,7 +56,8 @@ addEventListener('fetch', (e: FetchEvent) => e.respondWith(onFetch(e.request)));
 
 /// https://developer.mozilla.org/en-US/docs/Web/API/PeriodicSyncEvent
 type PeriodicSyncEvent = { tag: string } & ExtendableEvent;
-addEventListener('periodicsync', (e: PeriodicSyncEvent) => {
-    console.log('periodicsync:', e.tag);
-    e.waitUntil(refreshCache());
+addEventListener('periodicsync', e => {
+    const event = e as PeriodicSyncEvent;
+    console.log('periodicsync:', event.tag);
+    event.waitUntil(refreshCache());
 });

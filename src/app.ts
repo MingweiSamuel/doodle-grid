@@ -1,8 +1,67 @@
-import * as math from 'mathjs';
+import * as state from './state';
+import GestureHandler from './gesture_handler';
+import { BASE_PATHNAME, EDIT_REGEX } from './path';
 
-const hasWebP = document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') == 0;
+const { HAS_WEBP } = state;
+
+/// Anchor click handler that doesn't reload the page.
+function anchorOnClick(this: HTMLAnchorElement, e: MouseEvent) {
+    e.preventDefault();
+    history.pushState(null, '', this.href);
+    routeUpdate();
+    return false;
+}
+
+/// Call when the route is updated.
+function routeUpdate() {
+    const match = EDIT_REGEX.exec(window.location.pathname);
+    if (null != match) {
+        loadEdit(+match[1]);
+    } else {
+        if (BASE_PATHNAME !== window.location.pathname) {
+            history.pushState(null, '', BASE_PATHNAME);
+        }
+        loadDocs();
+    }
+}
+window.addEventListener('popstate', routeUpdate);
+
+async function loadEdit(docId: state.DbDocId) {
+    document.body.setAttribute('data-page', 'edit');
+
+    console.log('loadEdit', docId);
+    // TODO
+}
+
+async function loadDocs() {
+    document.body.setAttribute('data-page', 'docs');
+
+    const pageDocs: HTMLDivElement = document.getElementById('pageDocs')! as HTMLDivElement;
+
+    // Revoke old URLs.
+    pageDocs.querySelectorAll('&>a[data-url]').forEach(anchor => URL.revokeObjectURL(anchor.getAttribute('data-url')!));
+
+    // Replace with new children.
+    const docs = await state.getAllDocs();
+    const newChildren = docs.map(doc => {
+        const { thumb, dateModified, id } = doc;
+        const anchor = document.createElement('a');
+        anchor.setAttribute('href', `${BASE_PATHNAME}${id}`);
+        anchor.innerText = dateModified.toString();
+        if (null != thumb) {
+            const thumbUrl = URL.createObjectURL(thumb);
+            anchor.style.backgroundImage = `url("${CSS.escape(thumbUrl)}")`;
+            anchor.setAttribute('data-url', thumbUrl);
+        }
+        anchor.addEventListener('click', anchorOnClick);
+        return anchor;
+    });
+    pageDocs.replaceChildren(...newChildren);
+}
 
 document.addEventListener("DOMContentLoaded", function (_event) {
+    routeUpdate(); // TODO
+
     {
         const buttonFs: HTMLButtonElement = document.getElementById('button-fs')! as HTMLButtonElement;
         buttonFs.addEventListener('click', _e => {
@@ -42,6 +101,10 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         input.addEventListener('change', ((event: Event & { target: HTMLInputElement }) => {
             const file = event.target?.files?.[0];
             if (file) {
+                const bgOrRef = 'input-bg' === event.target.name ? 'background' : 'input-ref' === event.target.name ? 'reference' : null;
+                if (null == bgOrRef) throw new Error(`Unknown name: ${JSON.stringify(event.target.name)}`);
+                state.uploadImage(file, bgOrRef).then(console.log, console.error);
+
                 // 2.4 MB.
                 const MAX_SIZE = 2 * 1000 * 1000;
                 if (file.size < MAX_SIZE) {
@@ -62,7 +125,7 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
                         const ctx = canvas.getContext('2d')!;
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        const dataUrl = canvas.toDataURL(hasWebP ? 'image/webp' : 'image/jpeg', hasWebP ? 0.9 : 0.7);
+                        const dataUrl = canvas.toDataURL(HAS_WEBP ? 'image/webp' : 'image/jpeg', HAS_WEBP ? 0.9 : 0.7);
                         localStorage.setItem(event.target.name, dataUrl);
                     };
                 }
@@ -192,26 +255,9 @@ document.addEventListener("DOMContentLoaded", function (_event) {
             10_000 / window.innerHeight,
         );
 
-        const canvas = document.createElement('canvas');
-        canvas.width = window.innerWidth * scale;
-        canvas.height = window.innerHeight * scale;
+        renderImage(scale, imgBg, ghBg, imgRf, ghRf).then(blob => {
+            console.assert(null != blob);
 
-        const ctx = canvas.getContext('2d')!;
-        if (10 < imgBg.src.length) {
-            const [sc, ss, tx, ty] = ghBg._transform;
-            ctx.globalAlpha = 1.0;
-            ctx.setTransform(scale, 0, 0, scale, 0, 0);
-            ctx.transform(sc, ss, -ss, sc, tx, ty);
-            ctx.drawImage(imgBg, 0, 0);
-        }
-        if (10 < imgRf.src.length) {
-            const [sc, ss, tx, ty] = ghRf._transform;
-            ctx.globalAlpha = +imgRf.style.opacity;
-            ctx.setTransform(scale, 0, 0, scale, 0, 0);
-            ctx.transform(sc, ss, -ss, sc, tx, ty);
-            ctx.drawImage(imgRf, 0, 0);
-        }
-        canvas.toBlob(blob => {
             const blobUrl = URL.createObjectURL(blob!);
             const anchor = document.createElement('a');
 
@@ -223,118 +269,31 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
             URL.revokeObjectURL(blobUrl);
             anchor.remove();
-        }, hasWebP ? 'image/webp' : 'image/jpeg', 0.9);
+        });
     });
 });
 
-type Pointer = { pointerId: number, clientX: number, clientY: number };
+function renderImage(scale: number, imgBg: HTMLImageElement, ghBg: GestureHandler, imgRf: HTMLImageElement, ghRf: GestureHandler): Promise<Blob | null> {
+    const canvas = document.createElement('canvas');
+    canvas.width = window.innerWidth * scale;
+    canvas.height = window.innerHeight * scale;
 
-class GestureHandler {
-    _activePointers: Map<Number, { startX: number, startY: number, clientX: number, clientY: number }> = new Map();
-    _transform: [sc: number, ss: number, tx: number, ty: number] = [1, 0, 0, 0];
-    _target: HTMLElement;
-    _onUpdate: (_: [sc: number, ss: number, tx: number, ty: number]) => void;
-
-    constructor(onUpdate: (_: [sc: number, ss: number, tx: number, ty: number]) => any, transform?: [number, number, number, number]) {
-        this._onUpdate = onUpdate;
-        if (null != transform) {
-            this._transform = transform;
-            this._update();
-        }
+    const ctx = canvas.getContext('2d')!;
+    if (10 < imgBg.src.length) {
+        const [sc, ss, tx, ty] = ghBg._transform;
+        ctx.globalAlpha = 1.0;
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        ctx.transform(sc, ss, -ss, sc, tx, ty);
+        ctx.drawImage(imgBg, 0, 0);
+    }
+    if (10 < imgRf.src.length) {
+        const [sc, ss, tx, ty] = ghRf._transform;
+        ctx.globalAlpha = +imgRf.style.opacity;
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        ctx.transform(sc, ss, -ss, sc, tx, ty);
+        ctx.drawImage(imgRf, 0, 0);
     }
 
-    start({ clientX, clientY, pointerId }: Pointer): void {
-        const [startX, startY] = this.clientToImageXy({ clientX, clientY });
-        this._activePointers.set(pointerId, {
-            startX, startY, clientX, clientY
-        });
-    }
+    return new Promise(resolve => canvas.toBlob(blob => resolve(blob), HAS_WEBP ? 'image/webp' : 'image/jpeg', 0.9));
+}
 
-    move({ clientX, clientY, pointerId }: Pointer): void {
-        const active = this._activePointers.get(pointerId);
-        if (null == active) return;
-
-        this._activePointers.set(pointerId, {
-            ...active,
-            clientX,
-            clientY,
-        });
-
-        this._update();
-    }
-
-    end({ pointerId }: Pick<Pointer, "pointerId">): void {
-        this._activePointers.delete(pointerId);
-    }
-
-    zoom({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">, ratio: number): void {
-        this._transform[0] *= ratio;
-        this._transform[1] *= ratio;
-        this._transform[2] *= ratio;
-        this._transform[2] += clientX * (1 - ratio);
-        this._transform[3] *= ratio;
-        this._transform[3] += clientY * (1 - ratio);
-        this._update();
-    }
-
-    scale(): number {
-        const [sc, ss, ..._] = this._transform;
-        return Math.sqrt(sc * sc + ss * ss);
-    }
-
-    imageToclientXy([x, y]: [number, number]): [number, number] {
-        const [sc, ss, tx, ty] = this._transform;
-        const [sx, sy] = math.multiply([
-            [sc, -ss, tx],
-            [ss, +sc, ty],
-            [0, 0, 1]
-        ], [x, y, 1]) as [number, number, 1];
-        return [sx, sy];
-    }
-
-    clientToImageXy({ clientX, clientY }: Pick<Pointer, "clientX" | "clientY">): [number, number] {
-        const [sc, ss, tx, ty] = this._transform;
-        const [x, y, _z] = math.flatten(math.lusolve([
-            [sc, -ss, tx],
-            [ss, +sc, ty],
-            [0, 0, 1],
-        ], [clientX, clientY, 1])) as [number, number, 1];
-        return [x, y];
-    }
-
-    _update(): void {
-        const activePointers = Array.from(this._activePointers);
-        if (0 === activePointers.length) {
-            // No change.
-        }
-        else if (1 === activePointers.length) {
-            const [_id, p] = activePointers[0];
-
-            const [sc, ss, ..._] = this._transform;
-            const [tx, ty] = math.subtract(
-                [p.clientX, p.clientY],
-                math.multiply([
-                    [sc, -ss],
-                    [ss, +sc],
-                ], [p.startX, p.startY])
-            );
-            this._transform[2] = tx;
-            this._transform[3] = ty;
-        }
-        else {
-            const [_idA, a] = activePointers[0];
-            const [_idB, b] = activePointers[1];
-
-            // https://math.stackexchange.com/a/2790865/180371
-            this._transform = math.flatten(math.lusolve([
-                [a.startX, -a.startY, 1, 0],
-                [a.startY, +a.startX, 0, 1],
-                [b.startX, -b.startY, 1, 0],
-                [b.startY, +b.startX, 0, 1],
-            ], [a.clientX, a.clientY, b.clientX, b.clientY])) as [number, number, number, number];
-        }
-
-        // TODO: check if transform is actually changed?
-        this._onUpdate(this._transform);
-    }
-};
