@@ -11,7 +11,7 @@
         "newLine": "lf",
         "sourceMap": true,
         "stripInternal": true,
-        "alwaysStrict": true,
+        "strict": true,
         "noImplicitAny": true,
         "noImplicitThis": true,
         "noUnusedLocals": true,

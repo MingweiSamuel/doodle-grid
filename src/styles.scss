@@ -1,13 +1,4 @@
 body {
-    touch-action: none;
-    user-select: none;
-
-    width: 100svw;
-    height: 100svh;
-    // https://stackoverflow.com/a/33168168/2398020
-    overflow: hidden;
-    position: fixed;
-
     background-color: white;
     color: black;
 }
@@ -19,78 +10,130 @@ body {
     }
 }
 
-#gesture-area {
-    position: absolute;
-    width: 100svw;
-    height: 100svh;
-
-    img {
-        position: absolute;
-
-        // Always use pixel width.
-        max-width: none;
-        width: auto;
-
-        transform-origin: 0 0;
-
-        &#img-ref {
-            border: 0.2svw solid grey;
-        }
-
-        &[src="data:,"] {
-            display: none;
-        }
+body {
+    &>div[data-page] {
+        display: none;
+    }
+}
+body[data-page=docs] {
+    &>div[data-page=docs] {
+        display: block;
+    }
+}
+body[data-page=edit] {
+    &>div[data-page=edit] {
+        display: block;
     }
 }
 
-.control {
-    position: absolute;
+#pageDocs {
     display: flex;
-    flex-wrap: wrap; // Temp
-    text-align: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 25px;
 
-    &>* {
-        flex-grow: 0.1;
-    }
-    &>.grow {
-        flex-grow: 1;
-    }
+    &>a {
+        display: block;
+        background-size: cover;
+        width: 90svw;
+        max-width: 400px;
+        height: 90svw;
+        max-height: 400px;
+        padding: 10px;
 
-    input {
-        vertical-align: middle;
-    }
-
-    input[type="file"] {
-        display: none;
-    }
-
-    label,
-    button {
-        background-color: rgba(255, 255, 255, 0.5);
+        border: 1px solid black;
         color: black;
 
-        border: 1px solid #ccc;
-        display: inline-block;
-        padding: 6px 12px;
-        cursor: pointer;
-    }
+        @media (prefers-color-scheme: dark) {
+            border: 1px solid #ccc;
+            color: white;
+        }
 
-    label:has(>input[type=checkbox]:checked) {
-        background-color: rgba(127, 127, 127, 0.5);
-    }
-
-    &.hidden :not(#button-hide) {
-        display: none;
+        &:hover {
+            background-color: rgba(127, 127, 127, 0.5);
+        }
     }
 }
 
-@media (prefers-color-scheme: dark) {
+#pageEdit {
+    touch-action: none;
+    user-select: none;
+
+    width: 100svw;
+    height: 100svh;
+    // https://stackoverflow.com/a/33168168/2398020
+    overflow: hidden;
+    position: fixed;
+
+    #gesture-area {
+        position: absolute;
+        width: 100svw;
+        height: 100svh;
+
+        img {
+            position: absolute;
+
+            // Always use pixel width.
+            max-width: none;
+            width: auto;
+
+            transform-origin: 0 0;
+
+            &#img-ref {
+                border: 0.2svw solid grey;
+            }
+
+            &[src="data:,"] {
+                display: none;
+            }
+        }
+    }
+
     .control {
+        position: absolute;
+        display: flex;
+        flex-wrap: wrap; // Temp
+        text-align: center;
+
+        &>* {
+            flex-grow: 0.1;
+        }
+
+        &>.grow {
+            flex-grow: 1;
+        }
+
+        input {
+            vertical-align: middle;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
 
         label,
         button {
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
+            display: inline-block;
+            padding: 6px 12px;
+            cursor: pointer;
+
+            background-color: rgba(255, 255, 255, 0.5);
+            color: black;
+            border: 1px solid black;
+
+            @media (prefers-color-scheme: dark) {
+                background-color: rgba(0, 0, 0, 0.5);
+                color: white;
+                border: 1px solid #ccc;
+            }
+        }
+
+        label:has(>input[type=checkbox]:checked) {
+            background-color: rgba(127, 127, 127, 0.5);
+        }
+
+        &.hidden :not(#button-hide) {
+            display: none;
         }
     }
 }
