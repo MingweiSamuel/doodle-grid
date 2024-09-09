@@ -110,9 +110,7 @@ async function loadEdit(stateHandler: state.StateHandler) {
 
         {
             const imgUrl = stateHandler._imgUrls[bgOrRef];
-            if (null != imgUrl) {
-                img.src = imgUrl;
-            }
+            img.src = imgUrl || 'data:,';
         }
 
         input.onchange = (event: Event) => {
