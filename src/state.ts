@@ -472,7 +472,7 @@ function loadImgFromUrl(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const img = document.createElement('img');
         img.onerror = reject;
-        img.onload = _e => resolve(img);
+        img.onload = _e => requestAnimationFrame(() => resolve(img));
         img.src = url;
     });
 }
