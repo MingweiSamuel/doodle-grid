@@ -16,10 +16,10 @@ async function refreshCache() {
 async function cleanCache() {
     const keys = await caches.keys();
     await Promise.all(
-        keys.map(key => {
+        keys.map(async key => {
             if (key !== version) {
                 console.log('activate: clearing key', key);
-                caches.delete(key);
+                await caches.delete(key);
             } else {
                 console.log('activate: keeping key', key);
             }
