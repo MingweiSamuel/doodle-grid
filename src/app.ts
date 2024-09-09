@@ -4,33 +4,36 @@ import { BASE_PATHNAME, EDIT_REGEX } from './path';
 
 const { HAS_WEBP } = state;
 
-/// Anchor click handler that doesn't reload the page.
-function anchorOnClick(this: HTMLAnchorElement, e: MouseEvent) {
-    e.preventDefault();
-    history.pushState(null, '', this.href);
-    routeUpdate();
-    return false;
-}
+// let stateHandler: null | Promise<state.StateHandler> = null;
 
-/// Call when the route is updated.
+/// Called when the route is updated.
 function routeUpdate() {
     const match = EDIT_REGEX.exec(window.location.pathname);
     if (null != match) {
-        loadEdit(+match[1]);
-    } else {
+        state.StateHandler.create(+match[1]).then(loadEdit).catch(console.error);
+    }
+    else if ('/new' === window.location.pathname) {
+        state.StateHandler.create().then(sh => {
+            history.replaceState(null, '', `${BASE_PATHNAME}${sh.getDocId()}`);
+            loadEdit(sh);
+        }).catch(console.error);
+    }
+    else {
         if (BASE_PATHNAME !== window.location.pathname) {
-            history.pushState(null, '', BASE_PATHNAME);
+            history.replaceState(null, '', BASE_PATHNAME);
         }
         loadDocs();
     }
 }
 window.addEventListener('popstate', routeUpdate);
+document.addEventListener('DOMContentLoaded', routeUpdate);
 
-async function loadEdit(docId: state.DbDocId) {
-    document.body.setAttribute('data-page', 'edit');
-
-    console.log('loadEdit', docId);
-    // TODO
+/// Anchor click handler that doesn't reload the page.
+function anchorOnClick(e: MouseEvent) {
+    e.preventDefault();
+    history.pushState(null, '', (e.currentTarget as HTMLAnchorElement).href);
+    routeUpdate();
+    return false;
 }
 
 async function loadDocs() {
@@ -43,28 +46,42 @@ async function loadDocs() {
 
     // Replace with new children.
     const docs = await state.getAllDocs();
-    const newChildren = docs.map(doc => {
-        const { thumb, dateModified, id } = doc;
-        const anchor = document.createElement('a');
-        anchor.setAttribute('href', `${BASE_PATHNAME}${id}`);
-        anchor.innerText = dateModified.toString();
-        if (null != thumb) {
-            const thumbUrl = URL.createObjectURL(thumb);
-            anchor.style.backgroundImage = `url("${CSS.escape(thumbUrl)}")`;
-            anchor.setAttribute('data-url', thumbUrl);
-        }
-        anchor.addEventListener('click', anchorOnClick);
-        return anchor;
-    });
+    const newChildren = [
+        (() => {
+            const anchor = document.createElement('a');
+            anchor.setAttribute('href', `${BASE_PATHNAME}new`);
+            anchor.innerText = 'Create New';
+            anchor.onclick = anchorOnClick;
+            return anchor;
+        })(),
+        ...docs.map(doc => {
+            const { thumb, dateModified, id } = doc;
+            const anchor = document.createElement('a');
+            anchor.setAttribute('href', `${BASE_PATHNAME}${id}`);
+            anchor.innerText = dateModified.toString();
+            if (null != thumb) {
+                const thumbUrl = URL.createObjectURL(thumb);
+                anchor.style.backgroundImage = `url("${CSS.escape(thumbUrl)}")`;
+                anchor.setAttribute('data-url', thumbUrl);
+            }
+            anchor.onclick = anchorOnClick;
+            return anchor;
+        })
+    ];
     pageDocs.replaceChildren(...newChildren);
 }
 
-document.addEventListener("DOMContentLoaded", function (_event) {
-    routeUpdate(); // TODO
+async function loadEdit(stateHandler: state.StateHandler) {
+    document.body.setAttribute('data-page', 'edit');
+
+    {
+        const back = document.getElementById('back')! as HTMLAnchorElement;
+        back.onclick = anchorOnClick;
+    }
 
     {
         const buttonFs: HTMLButtonElement = document.getElementById('button-fs')! as HTMLButtonElement;
-        buttonFs.addEventListener('click', _e => {
+        buttonFs.onclick = _e => {
             if (null == document.fullscreenElement) {
                 document.body.requestFullscreen({
                     navigationUI: 'hide',
@@ -73,114 +90,93 @@ document.addEventListener("DOMContentLoaded", function (_event) {
             else {
                 document.exitFullscreen();
             }
-        });
+        };
     }
 
     {
         const buttonHide: HTMLButtonElement = document.getElementById('button-hide')! as HTMLButtonElement;
-        buttonHide.addEventListener('click', _e => {
+        buttonHide.onclick = _e => {
             const hidden = buttonHide.parentElement!.classList.toggle('hidden');
             buttonHide.innerText = hidden ? '>' : '<';
-        });
-    }
-
-    {
-        const buttonReset: HTMLButtonElement = document.getElementById('button-reset')! as HTMLButtonElement;
-        buttonReset.addEventListener('click', _e => {
-            if (confirm('Are you sure you want to reset the grid?')) {
-                localStorage.clear();
-                location.reload();
-            }
-        });
+        };
     }
 
     const setupFileInput = (input: HTMLInputElement, img: HTMLImageElement): void => {
-        const saved = localStorage.getItem(input.name);
-        if (null != saved) img.src = saved;
+        const bgOrRef = 'input-bg' === input.name ? 'background' : 'input-ref' === input.name ? 'reference' : null;
+        if (null == bgOrRef) {
+            throw new Error(`Unknown name: ${JSON.stringify(input.name)}`);
+        }
 
-        input.addEventListener('change', ((event: Event & { target: HTMLInputElement }) => {
-            const file = event.target?.files?.[0];
-            if (file) {
-                const bgOrRef = 'input-bg' === event.target.name ? 'background' : 'input-ref' === event.target.name ? 'reference' : null;
-                if (null == bgOrRef) throw new Error(`Unknown name: ${JSON.stringify(event.target.name)}`);
-                state.uploadImage(file, bgOrRef).then(console.log, console.error);
-
-                // 2.4 MB.
-                const MAX_SIZE = 2 * 1000 * 1000;
-                if (file.size < MAX_SIZE) {
-                    // Smaller, save as-is.
-                    const reader = new FileReader();
-                    reader.onload = e => {
-                        const dataUrl = e.target!.result! as string;
-                        localStorage.setItem(event.target.name, dataUrl);
-                    }
-                    reader.readAsDataURL(file);
-                }
-                else {
-                    // Large, re-encode as webp or lower-quality jpg.
-                    img.onload = _e => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-
-                        const ctx = canvas.getContext('2d')!;
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        const dataUrl = canvas.toDataURL(HAS_WEBP ? 'image/webp' : 'image/jpeg', HAS_WEBP ? 0.9 : 0.7);
-                        localStorage.setItem(event.target.name, dataUrl);
-                    };
-                }
-
-                img.src = URL.createObjectURL(file);
+        {
+            const imgUrl = stateHandler._imgUrls[bgOrRef];
+            if (null != imgUrl) {
+                img.src = imgUrl;
             }
-        }) as (e: Event) => void);
+        }
+
+        input.onchange = (event: Event) => {
+            const target = event.currentTarget! as HTMLInputElement;
+            const file = target.files?.[0];
+            if (file) {
+                img.src = URL.createObjectURL(file);
+                stateHandler.uploadImage(file, img.src, bgOrRef).catch(console.error);
+            }
+        };
     };
+
+    const imgBg: HTMLImageElement = document.getElementById('img-bg')! as HTMLImageElement;
+    const imgRf: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
 
     {
         const inputBg: HTMLInputElement = document.querySelector('input[type=file][name=input-bg]')! as HTMLInputElement;
-        const imgBg: HTMLImageElement = document.getElementById('img-bg')! as HTMLImageElement;
         setupFileInput(inputBg, imgBg);
     }
 
-    {
+    const setAlpha = (() => {
         const inputRef: HTMLInputElement = document.querySelector('input[type=file][name=input-ref]')! as HTMLInputElement;
-        const imgRef: HTMLImageElement = document.getElementById('img-ref')! as HTMLImageElement;
-        setupFileInput(inputRef, imgRef);
+        setupFileInput(inputRef, imgRf);
 
         const inputOpacity: HTMLInputElement = document.querySelector('input[type=range][name=input-opacity]')! as HTMLInputElement;
+        inputOpacity.value = `${stateHandler.getCurrState().reference.alpha * 100}`;
         const updateOpacity = (): void => {
-            imgRef.style.opacity = `${inputOpacity.value}%`;
+            imgRf.style.opacity = `${inputOpacity.value}%`;
         };
-        inputOpacity.addEventListener('input', updateOpacity);
+        inputOpacity.oninput = updateOpacity;
+        inputOpacity.onchange = () => stateHandler.pushAlpha(+inputOpacity.value / 100, 'reference');
         updateOpacity();
-    }
 
-    let updateTid: number | undefined = undefined;
-    const updateStorage = () => {
-        clearTimeout(updateTid);
-        updateTid = setTimeout(() => {
-            localStorage.setItem('tf-bg', JSON.stringify(ghBg._transform));
-            localStorage.setItem('tf-ref', JSON.stringify(ghRf._transform));
-        }, 250);
-    };
+        return (alpha: number) => {
+            inputOpacity.value = `${100 * alpha}`;
+            updateOpacity();
+        };
+    })();
 
     const PSEUDO_POINTER_ID = -1;
 
-    const imgBg = document.getElementById('img-bg')! as HTMLImageElement;
+    const tf6Bg = stateHandler.getCurrState().background.transform;
     const ghBg = new GestureHandler(([sc, ss, tx, ty]) => {
         imgBg.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
-        updateStorage();
-    }, JSON.parse(localStorage.getItem('tf-bg') || 'null'));
+    }, transform6toTransform4(tf6Bg));
 
-    const imgRf = document.getElementById('img-ref')! as HTMLImageElement;
+    let pushTransformTimeoutId: number | undefined = undefined;
+
+    const tf6Rf = stateHandler.getCurrState().reference.transform;
     const ghRf = new GestureHandler(([sc, ss, tx, ty]) => {
         imgRf.style.transform = `matrix(${sc}, ${ss}, ${-ss}, ${sc}, ${tx}, ${ty})`;
-        updateStorage();
-    }, JSON.parse(localStorage.getItem('tf-ref') || 'null'));
+
+        // Reference always moves, so we only trigger state changes here. Bit of a hack.
+        clearTimeout(pushTransformTimeoutId);
+        pushTransformTimeoutId = setTimeout(() => {
+            const bgTransform = ghBg._transform;
+            const rfTransform = ghRf._transform;
+            stateHandler.pushTransforms(state.transform4toTransform6(bgTransform), state.transform4toTransform6(rfTransform));
+        }, 250);
+    }, transform6toTransform4(tf6Rf));
 
     const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
     const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
 
-    gestureArea.addEventListener('pointerdown', event => {
+    gestureArea.onpointerdown = event => {
         event.preventDefault();
         if (!inputRepo.checked) ghBg.start(event);
         ghRf.start(event);
@@ -210,13 +206,23 @@ document.addEventListener("DOMContentLoaded", function (_event) {
                 });
             }
         }
-    });
+    };
 
-    gestureArea.addEventListener('pointermove', event => {
+    gestureArea.onpointermove = event => {
         event.preventDefault();
         if (!inputRepo.checked) ghBg.move(event);
         ghRf.move(event);
-    });
+    };
+
+    gestureArea.onwheel = e => {
+        if (e.metaKey || e.altKey || e.ctrlKey) return;
+
+        const scale = 1.0 - e.deltaY / 2000;
+        if (!inputRepo.checked) {
+            ghBg.zoom(e, scale);
+        }
+        ghRf.zoom(e, scale);
+    };
 
     const pointerEnd = (event: PointerEvent) => {
         event.preventDefault();
@@ -227,25 +233,16 @@ document.addEventListener("DOMContentLoaded", function (_event) {
         ghRf.end(event);
         ghRf.end({ pointerId: PSEUDO_POINTER_ID });
     };
-    gestureArea.addEventListener('pointercancel', pointerEnd);
-    gestureArea.addEventListener('pointerup', pointerEnd);
-    gestureArea.addEventListener('contextmenu', e => {
+    gestureArea.onpointercancel = pointerEnd;
+    gestureArea.onpointerup = pointerEnd;
+
+    gestureArea.oncontextmenu = e => {
         e.preventDefault();
         return false;
-    });
-
-    gestureArea.addEventListener('wheel', e => {
-        if (e.metaKey || e.altKey || e.ctrlKey) return;
-
-        const scale = 1.0 - e.deltaY / 2000;
-        if (!inputRepo.checked) {
-            ghBg.zoom(e, scale);
-        }
-        ghRf.zoom(e, scale);
-    });
+    };
 
     const buttonSave: HTMLButtonElement = document.getElementById('button-save')! as HTMLButtonElement;
-    buttonSave.addEventListener('click', _e => {
+    buttonSave.onclick = _e => {
         let scale = 1.5 / (Math.min(ghBg.scale(), ghRf.scale()));
         scale = Math.min(
             scale,
@@ -269,9 +266,40 @@ document.addEventListener("DOMContentLoaded", function (_event) {
 
             URL.revokeObjectURL(blobUrl);
             anchor.remove();
-        });
-    });
-});
+        }).catch(console.error);
+    };
+
+    {
+        const buttonUndo: HTMLButtonElement = document.getElementById('button-undo')! as HTMLButtonElement;
+        buttonUndo.onclick = _e => {
+            (async () => {
+                if (await stateHandler.undoState()) {
+                    const state = stateHandler.getCurrState();
+                    ghBg.setTransform(transform6toTransform4(state.background.transform));
+                    ghRf.setTransform(transform6toTransform4(state.reference.transform));
+                    imgBg.src = stateHandler._imgUrls.background || 'data:,'; // TODO(mingwei): handle null.
+                    imgRf.src = stateHandler._imgUrls.reference || 'data:,'; // TODO(mingwei): handle null.
+                    setAlpha(state.reference.alpha);
+                }
+            })().catch(console.error);
+        };
+    }
+    {
+        const buttonRedo: HTMLButtonElement = document.getElementById('button-redo')! as HTMLButtonElement;
+        buttonRedo.onclick = _e => {
+            (async () => {
+                if (await stateHandler.redoState()) {
+                    const state = stateHandler.getCurrState();
+                    ghBg.setTransform(transform6toTransform4(state.background.transform));
+                    ghRf.setTransform(transform6toTransform4(state.reference.transform));
+                    imgBg.src = stateHandler._imgUrls.background || 'data:,'; // TODO(mingwei): handle null.
+                    imgRf.src = stateHandler._imgUrls.reference || 'data:,'; // TODO(mingwei): handle null.
+                    setAlpha(state.reference.alpha);
+                }
+            })().catch(console.error);
+        };
+    }
+}
 
 function renderImage(scale: number, imgBg: HTMLImageElement, ghBg: GestureHandler, imgRf: HTMLImageElement, ghRf: GestureHandler): Promise<Blob | null> {
     const canvas = document.createElement('canvas');
@@ -297,3 +325,6 @@ function renderImage(scale: number, imgBg: HTMLImageElement, ghBg: GestureHandle
     return new Promise(resolve => canvas.toBlob(blob => resolve(blob), HAS_WEBP ? 'image/webp' : 'image/jpeg', 0.9));
 }
 
+function transform6toTransform4(tf6: state.Transform6): [sc: number, ss: number, tx: number, ty: number] {
+    return [tf6[0], tf6[1], tf6[4], tf6[5]];
+}

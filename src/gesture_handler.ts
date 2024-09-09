@@ -11,9 +11,14 @@ export default class GestureHandler {
     constructor(onUpdate: (_: [sc: number, ss: number, tx: number, ty: number]) => any, transform?: [number, number, number, number]) {
         this._onUpdate = onUpdate;
         if (null != transform) {
-            this._transform = transform;
-            this._update();
+            this.setTransform(transform);
         }
+    }
+
+    /// Manually set the transform (for undo/redo);
+    setTransform(transform: [sc: number, ss: number, tx: number, ty: number]) {
+        this._transform = transform;
+        this._update();
     }
 
     start({ clientX, clientY, pointerId }: Pointer): void {
