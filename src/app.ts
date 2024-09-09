@@ -60,13 +60,14 @@ async function loadDocs() {
             anchor.setAttribute('href', `${BASE_PATHNAME}${id}`);
             anchor.innerText = dateModified.toString();
             if (null != thumb) {
-                const thumbUrl = URL.createObjectURL(thumb);
+                const thumbUrl = state.dbFileOrBlobToObjectUrl(thumb);
                 anchor.style.backgroundImage = `url("${CSS.escape(thumbUrl)}")`;
                 anchor.setAttribute('data-url', thumbUrl);
             }
             anchor.onclick = anchorOnClick;
+
             return anchor;
-        })
+        }),
     ];
     pageDocs.replaceChildren(...newChildren);
 }

@@ -10,7 +10,7 @@ export interface DbImg {
     /// See `ImgState.imgId`. Used for garbage collection.
     rc: number,
     /// The image data.
-    blob: Blob,
+    blob: File | DbFile,
 }
 export type DbImgAdd = Omit<DbImg, 'id'>;
 
@@ -23,7 +23,7 @@ export interface DbDoc {
     dateModified: Date,
 
     /// Thumbnail of doc, small image.
-    thumb: Blob | null,
+    thumb: Blob | DbFile | null,
 
     /// Index of current state in `states`.
     /// Usually `states.length - 1`, but will be smaller if undo-ing.
@@ -47,6 +47,15 @@ export interface ImgState {
     alpha: number,
     /// Image PK ID. This increases the RC value by one.
     imgId: DbImgId | null,
+}
+
+/// WebKit blobs are broken in `IndexedDb`!
+/// https://stackoverflow.com/questions/61090349/indexeddb-doesnt-get-the-blobs-correctly-if-accessing-from-an-index-webkitblob
+/// https://stackoverflow.com/questions/68386273/error-loading-blob-to-img-in-safari-webkitblobresource-error-1
+export interface DbFile {
+    data: ArrayBuffer,
+    type: string,
+    name: string | null,
 }
 
 export type Transform6 = [number, number, number, number, number, number];
@@ -167,14 +176,14 @@ class ImageHandler {
                 ref.tx = (await DB).transaction(['img'], 'readonly');
             }
             const dbImg = await idbReq<DbImg>(ref.tx.objectStore('img').get(dbImgId));
-            const imgUrl = URL.createObjectURL(dbImg.blob);
+            const imgUrl = dbFileOrBlobToObjectUrl(dbImg.blob);
             return imgUrl;
         })();
         this._imageUrls.set(dbImgId, promise);
         return promise;
     }
 
-    async uploadImg(blob: Blob, imgUrl: string, ref: { tx?: IDBTransaction }): Promise<DbImgId> {
+    async uploadImg(blob: File | DbFile, imgUrl: string, ref: { tx?: IDBTransaction }): Promise<DbImgId> {
         if (null == ref.tx) {
             ref.tx = (await DB).transaction(['img'], 'readwrite');
         }
@@ -260,7 +269,6 @@ export class StateHandler {
             const tx = (await DB).transaction(['doc', 'img'], 'readonly');
             dbDoc = await idbReq<DbDoc>(tx.objectStore('doc').get(id));
             const state = dbDoc.states[dbDoc.stateCursor];
-            console.log('load state', state);
             const bgProm = IMAGE_HANDLER.loadImg(state.background.imgId, { tx });
             const rfProm = IMAGE_HANDLER.loadImg(state.reference.imgId, { tx });
             ([backgroundImgUrl, referenceImgUrl] = await Promise.all([bgProm, rfProm]));
@@ -369,13 +377,19 @@ export class StateHandler {
         await Promise.all([updateImgsPromise, putDocPromise]);
     }
 
-    async uploadImage(blob: Blob, imgUrl: string, type: 'background' | 'reference'): Promise<void> {
+    async uploadImage(blob: File, imgUrl: string, type: 'background' | 'reference'): Promise<void> {
+        const file: DbFile = {
+            data: await blob.arrayBuffer(),
+            type: blob.type,
+            name: blob.name,
+        };
+
         const tx = (await DB).transaction(['img', 'doc'], 'readwrite');
         const commit = new Promise((resolve, reject) => {
             tx.oncomplete = resolve;
             tx.onerror = reject;
         });
-        const dbImgId = await IMAGE_HANDLER.uploadImg(blob, imgUrl, { tx });
+        const dbImgId = await IMAGE_HANDLER.uploadImg(file, imgUrl, { tx });
 
         const newState: DocState = JSON.parse(JSON.stringify(this.getCurrState()));
         newState[type].imgId = dbImgId;
@@ -404,12 +418,14 @@ export class StateHandler {
 export async function getAllDocs(): Promise<DbDoc[]> {
     const tx = (await DB).transaction(['doc'], 'readonly');
     const commit = idbTx(tx);
-
     const docStore = tx.objectStore('doc');
-    const docDateModIdx = docStore.index('dateModified')
 
-    const docs = await idbReq<DbDoc[]>(docDateModIdx.getAll());
-    docs.reverse();
+    let docs: DbDoc[];
+    const docDateModIdx = docStore.index('dateModified')
+    docs = await idbReq<DbDoc[]>(docDateModIdx.getAll());
+    docs.reverse()
+    // docs = await idbReq<DbDoc[]>(docStore.getAll());
+    // docs.sort((a, b) => b.dateModified.valueOf() - a.dateModified.valueOf());
 
     await commit;
     return docs;
@@ -431,7 +447,7 @@ export const HAS_WEBP = document.createElement('canvas').toDataURL('image/webp')
 
 const THUMB_SIZE = 480;
 
-async function renderThumb(bgUrl: null | string, bgTrans: Transform6, rfUrl: null | string, rfTrans: Transform6, refAlpha: number): Promise<Blob | null> {
+async function renderThumb(bgUrl: null | string, bgTrans: Transform6, rfUrl: null | string, rfTrans: Transform6, refAlpha: number): Promise<DbFile | null> {
     const [bgImg, rfImg] = await Promise.all([
         null == bgUrl ? null : loadImgFromUrl(bgUrl),
         null == rfUrl ? null : loadImgFromUrl(rfUrl),
@@ -465,7 +481,11 @@ async function renderThumb(bgUrl: null | string, bgTrans: Transform6, rfUrl: nul
     }
 
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, HAS_WEBP ? 'image/webp' : 'image/png', 0.9));
-    return blob;
+    return blob && {
+        data: await blob.arrayBuffer(),
+        type: blob.type,
+        name: null,
+    };
 }
 
 function loadImgFromUrl(url: string): Promise<HTMLImageElement> {
@@ -502,4 +522,12 @@ function idbTx(tx: IDBTransaction): Promise<void> {
         tx.oncomplete = () => resolve();
         tx.onabort = reject;
     });
+}
+
+/// `URL.revokeObjectURL` should be called on the returned value when the URL is no longer needed.
+export function dbFileOrBlobToObjectUrl(blob: Blob | DbFile): string {
+    if (!(blob instanceof Blob)) {
+        blob = new Blob([blob.data], { type: blob.type });
+    }
+    return URL.createObjectURL(blob);
 }
