@@ -15,15 +15,21 @@ body {
         display: none;
     }
 }
+
 body[data-page=docs] {
     &>div[data-page=docs] {
         display: block;
     }
 }
+
 body[data-page=edit] {
     &>div[data-page=edit] {
         display: block;
     }
+}
+
+a {
+    text-decoration: none;
 }
 
 #pageDocs {
@@ -112,7 +118,8 @@ body[data-page=edit] {
         }
 
         label,
-        button {
+        button,
+        a {
             display: inline-block;
             padding: 6px 12px;
             cursor: pointer;
