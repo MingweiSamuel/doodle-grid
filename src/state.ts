@@ -429,7 +429,7 @@ function decrementImgIds(prev: DocState[], next: DocState[]): Set<DbImgId> {
 
 export const HAS_WEBP = document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') == 0;
 
-const THUMB_SIZE = 320;
+const THUMB_SIZE = 480;
 
 async function renderThumb(bgUrl: null | string, bgTrans: Transform6, rfUrl: null | string, rfTrans: Transform6, refAlpha: number): Promise<Blob | null> {
     const [bgImg, rfImg] = await Promise.all([
@@ -446,6 +446,11 @@ async function renderThumb(bgUrl: null | string, bgTrans: Transform6, rfUrl: nul
     const ty = 0.5 * (THUMB_SIZE - scale * window.innerHeight);
 
     const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    if ('imageSmoothingQuality' in ctx) {
+        ctx.imageSmoothingQuality = 'high';
+    }
+
     if (null != bgImg && 10 < bgImg.src.length) {
         ctx.globalAlpha = 1.0;
         ctx.setTransform(scale, 0, 0, scale, tx, ty);
