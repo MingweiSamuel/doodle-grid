@@ -174,6 +174,8 @@ async function loadEdit(stateHandler: state.StateHandler) {
     }, transform6toTransform4(tf6Rf));
 
     const inputRepo = document.querySelector('input[type=checkbox][name=input-repo]')! as HTMLInputElement;
+    inputRepo.checked = false; // Always reset to false to prevent accidental repositioning.
+
     const gestureArea: HTMLDivElement = document.getElementById('gesture-area')! as HTMLDivElement;
 
     gestureArea.onpointerdown = event => {
