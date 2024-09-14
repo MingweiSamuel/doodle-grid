@@ -1,7 +1,7 @@
 {
   "name": "DoodleGrid",
   "short_name": "DoodleGrid",
-  "start_url": "index.html",
+  "start_url": ".",
   "display": "standalone",
   "description": "Draw using a doodle grid for reference!",
   "icons": [
